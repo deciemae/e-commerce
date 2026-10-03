@@ -1,0 +1,668 @@
+/* Sidebar layout */
+body {
+    background-color: #f5f6fa;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* ── Sidebar (admin only) ─────────────────────────────────── */
+.admin-ui #sidebar {
+    width: 240px;
+    min-height: 100vh;
+    background-color: #1e2a3a;
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    transition: transform .2s ease;
+}
+
+.admin-ui #sidebar .sidebar-brand {
+    padding: 1.5rem 1.25rem 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+
+.admin-ui #sidebar .sidebar-brand span {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: .2px;
+    text-transform: uppercase;
+}
+
+.admin-ui #sidebar .sidebar-brand small {
+    display: block;
+    font-size: .72rem;
+    color: rgba(255, 255, 255, .4);
+    margin-top: .15rem;
+    font-weight: 400;
+    letter-spacing: .5px;
+}
+
+.admin-ui #sidebar nav {
+    padding: .75rem 0;
+    flex: 1;
+}
+
+.admin-ui #sidebar .nav-item a {
+    display: block;
+    padding: .6rem 1.25rem;
+    color: rgba(255, 255, 255, .65);
+    text-decoration: none;
+    font-size: .875rem;
+    font-weight: 500;
+    transition: background .15s, color .15s;
+    border-left: 3px solid transparent;
+}
+
+.admin-ui #sidebar .nav-item a:hover {
+    background-color: rgba(255, 255, 255, .06);
+    color: #fff;
+}
+
+.admin-ui #sidebar .nav-item a.active {
+    background-color: rgba(255, 255, 255, .08);
+    color: #ffffff;
+    border-left-color: #4f8ef7;
+}
+
+.admin-ui #sidebar .nav-section-label {
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, .3);
+    padding: 1.25rem 1.25rem .35rem;
+}
+
+.admin-ui #sidebar .sidebar-footer {
+    padding: 1rem 1.25rem;
+    font-size: .75rem;
+    color: rgba(255, 255, 255, .25);
+    border-top: 1px solid rgba(255, 255, 255, .06);
+}
+
+/* ── Sidebar collapse / toggle ────────────────────────────── */
+.admin-ui.sidebar-collapsed #sidebar {
+    transform: translateX(-240px);
+}
+
+.admin-ui.sidebar-collapsed #main-content {
+    margin-left: 0;
+}
+
+.sidebar-toggle-btn {
+    position: fixed;
+    top: 20px;
+    left: 226px;
+    z-index: 110;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    color: #1e2a3a;
+    border: 1px solid #e3e6ed;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .1);
+    cursor: pointer;
+    padding: 0;
+    transition: left .2s ease, background .15s ease;
+}
+
+.sidebar-toggle-btn:hover {
+    background: #f8fafc;
+}
+
+.admin-ui.sidebar-collapsed .sidebar-toggle-btn {
+    left: 12px;
+}
+
+/* ── Main content (admin only) ────────────────────────────────────────── */
+.admin-ui #main-content {
+    margin-left: 240px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    transition: margin-left .2s ease;
+}
+
+.page-topbar {
+    background: #fff;
+    border-bottom: 1px solid #e3e6ed;
+    padding: .85rem 2rem;
+}
+
+.page-topbar h1 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1e2a3a;
+    margin: 0;
+}
+
+/* ── Admin profile menu (shared across all admin pages) ──── */
+.profile-menu .profile-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #e3e6ed;
+    padding: 0;
+}
+
+.profile-menu .profile-btn:hover,
+.profile-menu .profile-btn:focus {
+    background: #e2e8f0;
+    color: #334155;
+}
+
+.profile-menu .profile-btn::after {
+    display: none;
+}
+
+.profile-menu .profile-btn img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.profile-menu .dropdown-menu {
+    border: 1px solid #e3e6ed;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(15, 23, 42, .1);
+    padding: 6px;
+    min-width: 180px;
+    margin-top: 8px;
+}
+
+.profile-menu .dropdown-item {
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: .9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.profile-menu .dropdown-item:hover,
+.profile-menu .dropdown-item:focus {
+    background: #f8fafc;
+}
+
+.profile-menu .dropdown-item.text-danger:hover,
+.profile-menu .dropdown-item.text-danger:focus {
+    background: rgba(184, 67, 58, .1);
+}
+
+.page-content {
+    flex: 1;
+    padding: 2rem;
+}
+
+/* ── Cards ───────────────────────────────────────────────── */
+.card {
+    border: 1px solid #e3e6ed;
+    border-radius: 8px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .05);
+}
+
+.card-header-custom {
+    font-size: .8rem;
+    font-weight: 700;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    color: #6b7280;
+    padding: 1rem 1.25rem .75rem;
+    border-bottom: 1px solid #e3e6ed;
+    background: #fff;
+    border-radius: 8px 8px 0 0;
+}
+
+/* ── Dashboard summary cards ─────────────────────────────── */
+.summary-card {
+    background: #fff;
+    border: 1px solid #e3e6ed;
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    transition: box-shadow .2s, transform .2s;
+}
+
+.summary-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .1);
+    transform: translateY(-2px);
+    color: inherit;
+}
+
+.summary-card .card-label {
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: #9ca3af;
+    margin-bottom: .4rem;
+}
+
+.summary-card .card-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1e2a3a;
+    margin-bottom: .3rem;
+}
+
+.summary-card .card-desc {
+    font-size: .83rem;
+    color: #6b7280;
+    margin: 0;
+}
+
+.summary-card .card-arrow {
+    font-size: .8rem;
+    color: #4f8ef7;
+    margin-top: .75rem;
+    display: inline-block;
+}
+
+/* ── Tables ──────────────────────────────────────────────── */
+.table thead th {
+    background-color: #f8f9fb;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: #6b7280;
+    border-bottom: 2px solid #e3e6ed;
+    padding: .65rem 1rem;
+}
+
+.table td {
+    font-size: .875rem;
+    color: #374151;
+    padding: .65rem 1rem;
+    vertical-align: middle;
+}
+
+.table-hover tbody tr:hover {
+    background-color: #f8f9fb;
+}
+
+.table-count {
+    font-size: .78rem;
+    color: #9ca3af;
+    margin-top: .75rem;
+    text-align: right;
+}
+
+/* ── Badge ───────────────────────────────────────────────── */
+.cat-badge {
+    display: inline-block;
+    padding: .2rem .6rem;
+    background: #eef2ff;
+    color: #4338ca;
+    border-radius: 4px;
+    font-size: .75rem;
+    font-weight: 600;
+}
+
+/* ── Form labels ─────────────────────────────────────────── */
+.form-label {
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+    color: #6b7280;
+    margin-bottom: .3rem;
+}
+
+.form-control,
+.form-select {
+    font-size: .875rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: .45rem .75rem;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: #4f8ef7;
+    box-shadow: 0 0 0 3px rgba(79, 142, 247, .15);
+}
+
+.form-text {
+    font-size: .75rem;
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .4rem;
+    font-size: .875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    padding: .55rem 1rem;
+    border-radius: 8px;
+    transition: all .18s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn:focus-visible {
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .18);
+}
+
+.btn-primary {
+    background-color: #000000;
+    border-color: #000000;
+    color: #fff;
+    font-size: .875rem;
+    font-weight: 600;
+    padding: .55rem 1.1rem;
+}
+
+.btn-primary:hover {
+    background-color: #333333;
+    border-color: #333333;
+    color: #fff;
+}
+
+.btn-light {
+    background-color: #fff;
+    border-color: #fff;
+    color: #0f172a;
+}
+
+.btn-light:hover {
+    background-color: #f8fafc;
+    border-color: #f8fafc;
+    color: #0f172a;
+}
+
+.btn-outline-light {
+    color: #fff;
+    border-color: rgba(255, 255, 255, .8);
+    background: transparent;
+}
+
+.btn-outline-light:hover {
+    background: rgba(255, 255, 255, .08);
+    border-color: rgba(255, 255, 255, .9);
+    color: #fff;
+}
+
+/* ── Alerts ──────────────────────────────────────────────── */
+.alert {
+    font-size: .875rem;
+    border-radius: 6px;
+    padding: .75rem 1rem;
+}
+
+/* ── Product thumbnail ───────────────────────────────────── */
+.product-thumb {
+    width: 40px;
+    aspect-ratio: 4 / 5;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid #e3e6ed;
+}
+
+.product-thumb-lg {
+    width: 64px;
+    aspect-ratio: 4 / 5;
+}
+
+.product-detail-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 1rem;
+}
+
+.product-detail-media .card-body {
+    height: 100%;
+}
+
+.product-detail-image {
+    width: 100%;
+    aspect-ratio: 4 / 5;
+    object-fit: cover;
+    display: block;
+    background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+    border-radius: 12px;
+}
+
+.product-detail-placeholder {
+    aspect-ratio: 4 / 5;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.product-detail-title {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #1e2a3a;
+    margin-bottom: .25rem;
+}
+
+.product-detail-price {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: #16a34a;
+}
+
+.product-detail-description {
+    line-height: 1.7;
+    margin-bottom: 0;
+}
+
+.star-rating,
+.star-input-group {
+    display: inline-flex;
+    align-items: center;
+    gap: .15rem;
+}
+
+.star-rating .star,
+.star-input-group label {
+    font-size: 1.1rem;
+    line-height: 1;
+    color: #d1d5db;
+}
+
+.star-rating .star.filled,
+.star-input-group input:checked ~ label,
+.star-input-group label:hover,
+.star-input-group label:hover ~ label {
+    color: #f59e0b;
+}
+
+.star-input-group {
+    flex-direction: row-reverse;
+}
+
+.star-input-group input {
+    display: none;
+}
+
+.star-input-group label {
+    cursor: pointer;
+    font-size: 1.6rem;
+    transition: transform .12s ease, color .12s ease;
+}
+
+.star-input-group label:hover {
+    transform: translateY(-1px);
+}
+
+.review-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.review-item {
+    border: 1px solid #e3e6ed;
+    border-radius: 12px;
+    padding: 1rem;
+    background: #fff;
+}
+
+.review-text {
+    color: #374151;
+    line-height: 1.6;
+}
+
+.btn-outline-primary {
+    border-color: #000000;
+    color: #000000;
+}
+
+.btn-outline-primary:hover {
+    background: #000000;
+    border-color: #000000;
+    color: #fff;
+}
+
+.btn-outline-secondary {
+    border-color: #d1d5db;
+    color: #374151;
+}
+
+.btn-outline-secondary:hover {
+    background: #f3f4f6;
+    color: #111827;
+}
+
+.btn-outline-danger {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.btn-outline-danger:hover {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: #fff;
+}
+
+.btn-sm {
+    padding: .35rem .7rem;
+    border-radius: 6px;
+}
+
+/* Action icon buttons used in product lists */
+.action-icon {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+}
+.action-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.tracking-wide {
+    letter-spacing: .08em;
+}
+
+@media (max-width: 992px) {
+    .product-detail-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ── Empty state ─────────────────────────────────────────── */
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #9ca3af;
+    font-size: .9rem;
+}
+
+/* ── Page footer ─────────────────────────────────────────── */
+.page-footer {
+    padding: 1rem 2rem;
+    font-size: .75rem;
+    color: #9ca3af;
+    border-top: 1px solid #e3e6ed;
+    background: #fff;
+    text-align: center;
+}
+/* ── Order Details ─────────────────────────────────────────── */
+ / *   - - - -   P r o f i l e   m e n u   - - - -   * / 
+ . p r o f i l e - m e n u   . p r o f i l e - b t n   { 
+         w i d t h :   4 0 p x ; 
+         h e i g h t :   4 0 p x ; 
+         b o r d e r - r a d i u s :   5 0 % ; 
+         d i s p l a y :   f l e x ; 
+         a l i g n - i t e m s :   c e n t e r ; 
+         j u s t i f y - c o n t e n t :   c e n t e r ; 
+         b a c k g r o u n d :   r g b a ( 1 9 4 ,   7 1 ,   1 2 2 ,   0 . 1 2 ) ; 
+         c o l o r :   # c 2 4 7 7 a ; 
+         b o r d e r :   1 p x   s o l i d   r g b a ( 4 2 ,   3 8 ,   3 3 ,   0 . 0 9 ) ; 
+         p a d d i n g :   0 ; 
+ } 
+ 
+ . p r o f i l e - m e n u   . p r o f i l e - b t n : h o v e r , 
+ . p r o f i l e - m e n u   . p r o f i l e - b t n : f o c u s   { 
+         b a c k g r o u n d :   r g b a ( 1 9 4 ,   7 1 ,   1 2 2 ,   0 . 1 2 ) ; 
+         c o l o r :   # c 2 4 7 7 a ; 
+ } 
+ 
+ . p r o f i l e - m e n u   . p r o f i l e - b t n : : a f t e r   { 
+         d i s p l a y :   n o n e ; 
+ } 
+ 
+ . p r o f i l e - m e n u   . p r o f i l e - b t n   i m g   { 
+         w i d t h :   1 0 0 % ; 
+         h e i g h t :   1 0 0 % ; 
+         b o r d e r - r a d i u s :   5 0 % ; 
+         o b j e c t - f i t :   c o v e r ; 
+ } 
+ 
+ . p r o f i l e - m e n u   . d r o p d o w n - m e n u   { 
+         b o r d e r :   1 p x   s o l i d   r g b a ( 4 2 ,   3 8 ,   3 3 ,   0 . 0 9 ) ; 
+         b o r d e r - r a d i u s :   1 2 p x ; 
+         b o x - s h a d o w :   0   6 p x   2 0 p x   r g b a ( 4 2 ,   3 8 ,   3 3 ,   0 . 1 ) ; 
+         p a d d i n g :   6 p x ; 
+         m i n - w i d t h :   1 8 0 p x ; 
+         m a r g i n - t o p :   8 p x ; 
+ } 
+ 
+ . p r o f i l e - m e n u   . d r o p d o w n - i t e m   { 
+         b o r d e r - r a d i u s :   8 p x ; 
+         p a d d i n g :   8 p x   1 2 p x ; 
+         f o n t - s i z e :   0 . 9 r e m ; 
+         d i s p l a y :   f l e x ; 
+         a l i g n - i t e m s :   c e n t e r ; 
+         g a p :   8 p x ; 
+ } 
+ 
+ . p r o f i l e - m e n u   . d r o p d o w n - i t e m : h o v e r , 
+ . p r o f i l e - m e n u   . d r o p d o w n - i t e m : f o c u s   { 
+         b a c k g r o u n d :   # f b f 9 f 6 ; 
+ } 
+ 
+ . p r o f i l e - m e n u   . d r o p d o w n - i t e m . t e x t - d a n g e r : h o v e r , 
+ . p r o f i l e - m e n u   . d r o p d o w n - i t e m . t e x t - d a n g e r : f o c u s   { 
+         b a c k g r o u n d :   r g b a ( 1 8 4 ,   6 7 ,   5 8 ,   0 . 1 ) ; 
+ } 
+  
+ 
