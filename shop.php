@@ -23,6 +23,9 @@ $conn = getConnection();
 $searchTerm = trim((string)($_GET['q'] ?? ''));
 $selectedCategoryId = (int)($_GET['category'] ?? 0);
 $selectedCategoryName = '';
+$categories = $conn->query(
+    'SELECT category_id, category_name FROM categories ORDER BY category_name ASC'
+)->fetch_all(MYSQLI_ASSOC);
 
 if ($selectedCategoryId > 0) {
     $categoryStmt = $conn->prepare('SELECT category_name FROM categories WHERE category_id = ?');
@@ -104,8 +107,8 @@ function renderCartIcon(string $class = ''): string {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Customer Shop — Bloom &amp; Basket</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
     <link rel="stylesheet" href="assets/customer.css">
     <link rel="stylesheet" href="assets/cart.css">
@@ -138,8 +141,36 @@ function renderCartIcon(string $class = ''): string {
 
     <div class="page-content">
 
-        <div class="card mb-4">
-            <div class="card-body p-4">
+        <section class="catalog-heading" aria-labelledby="catalog-title">
+            <div>
+                <p class="catalog-eyebrow">Bloom &amp; Basket catalog</p>
+                <h1 id="catalog-title"><?= $selectedCategoryName !== '' ? htmlspecialchars($selectedCategoryName) : 'Shop all products' ?></h1>
+                <p>Browse everyday essentials and choose the options that suit you.</p>
+            </div>
+            <form method="GET" action="shop.php" class="catalog-search" role="search">
+                <?php if ($selectedCategoryId > 0): ?>
+                    <input type="hidden" name="category" value="<?= $selectedCategoryId ?>">
+                <?php endif; ?>
+                <label class="visually-hidden" for="catalog-search-input">Search catalog</label>
+                <input id="catalog-search-input" type="search" name="q" value="<?= htmlspecialchars($searchTerm, ENT_QUOTES) ?>" placeholder="Search products" aria-label="Search catalog">
+                <button type="submit">Search</button>
+            </form>
+        </section>
+
+        <nav class="catalog-filters" aria-label="Product categories">
+            <a href="shop.php<?= $searchTerm !== '' ? '?q=' . rawurlencode($searchTerm) : '' ?>" class="catalog-filter <?= $selectedCategoryId === 0 ? 'active' : '' ?>">All</a>
+            <?php foreach ($categories as $category): ?>
+                <?php $filterQuery = http_build_query(array_filter(['category' => (int)$category['category_id'], 'q' => $searchTerm], static fn($value) => $value !== '')); ?>
+                <a href="shop.php?<?= htmlspecialchars($filterQuery, ENT_QUOTES) ?>" class="catalog-filter <?= $selectedCategoryId === (int)$category['category_id'] ? 'active' : '' ?>">
+                    <?= htmlspecialchars($category['category_name']) ?>
+                </a>
+            <?php endforeach; ?>
+            <?php if ($selectedCategoryId > 0 || $searchTerm !== ''): ?>
+                <a href="shop.php" class="catalog-filter catalog-filter-clear">Clear filters</a>
+            <?php endif; ?>
+        </nav>
+
+        <div class="catalog-surface">
                 <?php if (empty($products)): ?>
                     <div class="empty-state">
                         <?php if ($selectedCategoryName !== ''): ?>
@@ -151,12 +182,12 @@ function renderCartIcon(string $class = ''): string {
                         <?php endif; ?>
                     </div>
                 <?php else: ?>
-                    <div class="row g-4">
+                    <div class="row g-3 product-grid">
                         <?php foreach ($products as $p):
                             $colors = $productColorMap[(int)$p['product_id']] ?? [];
                             $isOutOfStock = ((int)$p['stock_quantity'] <= 0);
                         ?>
-                        <div class="col-sm-6 col-lg-4 col-xl-3">
+                        <div class="col-12 col-sm-6 col-lg-4">
                             <div class="product-catalog-card <?= $isOutOfStock ? 'opacity-75' : '' ?>" id="pcard-<?= $p['product_id'] ?>">
                                 <!-- Image -->
                                 <div class="product-img-wrap">
@@ -175,7 +206,7 @@ function renderCartIcon(string $class = ''): string {
                                 <div class="product-info">
                                     <span class="cat-badge mb-1"><?= htmlspecialchars($p['category_name']) ?></span>
                                     <div class="catalog-product-name"><?= htmlspecialchars($p['product_name']) ?></div>
-                                    <p class="text-muted small mb-2" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.4em;">
+                                    <p class="catalog-product-description">
                                         <?= htmlspecialchars($p['description'] ?? 'No description provided.') ?>
                                     </p>
                                     <div class="catalog-price">&#8369;<?= number_format((float)$p['price'], 2) ?></div>
@@ -213,7 +244,7 @@ function renderCartIcon(string $class = ''): string {
                                         <div class="d-flex align-items-center gap-2 mt-auto pt-2">
                                             <input type="number" class="form-control form-control-sm add-qty-input"
                                                    id="add-qty-<?= $p['product_id'] ?>" value="1" min="1" max="<?= (int)$p['stock_quantity'] ?>"
-                                                   style="width: 65px; text-align: center;">
+                                                   aria-label="Quantity for <?= htmlspecialchars($p['product_name'], ENT_QUOTES) ?>">
                                             <button class="btn-add-cart flex-grow-1"
                                                     id="add-btn-<?= $p['product_id'] ?>"
                                                     onclick="addToCart(<?= $p['product_id'] ?>, this)">
@@ -230,7 +261,6 @@ function renderCartIcon(string $class = ''): string {
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
-            </div>
         </div>
 
     </div>

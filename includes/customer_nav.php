@@ -23,8 +23,21 @@ if (function_exists('getConnection') && function_exists('getOrCreateCart')) {
         <a href="index.php" class="customer-nav-logo">Bloom &amp; Basket</a>
     </div>
 
-    <div class="customer-nav-right">
-        <nav class="customer-nav-links">
+    <button
+        type="button"
+        class="customer-nav-toggle"
+        aria-controls="customer-navigation"
+        aria-expanded="false"
+        aria-label="Open navigation menu"
+        data-nav-toggle
+    >
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+
+    <div class="customer-nav-right" id="customer-navigation" data-nav-panel>
+        <nav class="customer-nav-links" aria-label="Primary navigation">
             <a href="index.php" class="<?= $customerActivePage === 'home' ? 'active' : '' ?>">Home</a>
             <a href="shop.php" class="<?= $customerActivePage === 'shop' ? 'active' : '' ?>">Shop</a>
             <a href="about_us.php" class="<?= $customerActivePage === 'about' ? 'active' : '' ?>">About Us</a>
@@ -44,13 +57,13 @@ if (function_exists('getConnection') && function_exists('getOrCreateCart')) {
                     aria-label="Search products"
                 >
             </form>
-            <a href="cart.php" class="nav-icon-link <?= $customerActivePage === 'cart' ? 'active' : '' ?>" aria-label="Cart" style="position: relative;">
+            <a href="cart.php" class="nav-icon-link customer-nav-cart <?= $customerActivePage === 'cart' ? 'active' : '' ?>" aria-label="Cart">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 9.4a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.75L19 7H6.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                     <circle cx="10" cy="18" r="1.5" fill="currentColor"/>
                     <circle cx="17" cy="18" r="1.5" fill="currentColor"/>
                 </svg>
                 <?php if ($navCartCount > 0): ?>
-                    <span class="position-absolute translate-middle badge bg-danger" style="top: 5px; left: 85%; font-size: 0.7rem; padding: 0; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: 700;">
+                    <span class="customer-nav-cart-count">
                         <?= $navCartCount > 99 ? '99+' : $navCartCount ?>
                         <span class="visually-hidden">items in cart</span>
                     </span>
@@ -85,6 +98,38 @@ if (function_exists('getConnection') && function_exists('getOrCreateCart')) {
 (function () {
     const searchForm = document.querySelector('[data-nav-search]');
     const searchInput = document.getElementById('customer-nav-search-input');
+    const navToggle = document.querySelector('[data-nav-toggle]');
+    const navPanel = document.querySelector('[data-nav-panel]');
+
+    function closeNavigation() {
+        if (!navToggle || !navPanel) return;
+        navPanel.classList.remove('is-open');
+        navToggle.setAttribute('aria-expanded', 'false');
+        navToggle.setAttribute('aria-label', 'Open navigation menu');
+    }
+
+    if (navToggle && navPanel) {
+        navToggle.addEventListener('click', function () {
+            const isOpen = navPanel.classList.toggle('is-open');
+            navToggle.setAttribute('aria-expanded', String(isOpen));
+            navToggle.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+        });
+
+        navPanel.querySelectorAll('a').forEach(function (link) {
+            link.addEventListener('click', closeNavigation);
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                closeNavigation();
+                navToggle.focus();
+            }
+        });
+
+        window.addEventListener('resize', function () {
+            if (window.innerWidth > 991) closeNavigation();
+        });
+    }
 
     if (!searchForm || !searchInput) {
         return;

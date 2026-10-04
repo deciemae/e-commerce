@@ -68,11 +68,11 @@ $conn->close();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bloom &amp; Basket | Home</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
     <link rel="stylesheet" href="assets/customer.css">
-    <style>
+    <style media="not all">
         .featured-product-card { position: relative; }
         .featured-add-cart { position: absolute; top: 8px; right: 8px; z-index: 5; border-radius: 999px; padding: .35rem .45rem; }
         #cart-toast-container { position: fixed; right: 18px; bottom: 18px; z-index: 1200; }
@@ -289,7 +289,7 @@ $conn->close();
 
     </style>
 </head>
-<body class="customer-ui customer-page">
+<body class="customer-ui customer-page home-storefront">
 
 <?php $customerActivePage = 'home'; require_once 'includes/customer_nav.php'; ?>
 
@@ -300,7 +300,7 @@ $conn->close();
             Change the $heroImage value near the top of this file to use a different image.
             Recommended: a wide landscape image (around 1920 x 800 or larger).
         -->
-        <section class="custom-hero mb-4">
+        <section class="custom-hero">
             <img
                 src="<?= htmlspecialchars($heroImage) ?>"
                 alt="Featured products"
@@ -325,12 +325,13 @@ $conn->close();
             </div>
         </section>
 
+        <div class="home-content-shell">
         <!-- Features/Perks Bar -->
-        <section class="features-bar py-4 py-md-5 mb-5" style="border-bottom: 1px solid rgba(0,0,0,0.05); border-top: 1px solid rgba(0,0,0,0.05);">
+        <section class="features-bar" aria-label="Shopping benefits">
             <div class="row g-4 text-center text-md-start justify-content-center">
                 <!-- Free Shipping -->
                 <div class="col-6 col-md-3 d-flex flex-column flex-md-row align-items-center justify-content-center justify-content-md-start gap-3">
-                    <div class="feature-icon" style="color: #0f172a;">
+                    <div class="feature-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
                             <rect x="1" y="3" width="15" height="13"></rect>
                             <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
@@ -345,7 +346,7 @@ $conn->close();
                 </div>
                 <!-- Secure Payments -->
                 <div class="col-6 col-md-3 d-flex flex-column flex-md-row align-items-center justify-content-center justify-content-md-start gap-3">
-                    <div class="feature-icon" style="color: #0f172a;">
+                    <div class="feature-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
                             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
                             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
@@ -358,7 +359,7 @@ $conn->close();
                 </div>
                 <!-- Easy Returns -->
                 <div class="col-6 col-md-3 d-flex flex-column flex-md-row align-items-center justify-content-center justify-content-md-start gap-3">
-                    <div class="feature-icon" style="color: #0f172a;">
+                    <div class="feature-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
                             <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
                             <path d="M3 3v5h5"></path>
@@ -371,7 +372,7 @@ $conn->close();
                 </div>
                 <!-- 24/7 Support -->
                 <div class="col-6 col-md-3 d-flex flex-column flex-md-row align-items-center justify-content-center justify-content-md-start gap-3">
-                    <div class="feature-icon" style="color: #0f172a;">
+                    <div class="feature-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
                             <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
                             <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
@@ -385,10 +386,10 @@ $conn->close();
             </div>
         </section>
 
-        <section class="mb-5">
-            <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap mb-3">
-                <h2 class="fw-bold mb-0" style="font-size: clamp(1.2rem, 2vw, 1.5rem); color: #0f172a;">Shop by Categories</h2>
-                <a href="shop.php" class="text-decoration-none fw-semibold" style="color: #64748b; font-size: 0.85rem;">View All Categories &rarr;</a>
+        <section class="storefront-section">
+            <div class="storefront-section-heading">
+                <h2>Shop by Categories</h2>
+                <a href="shop.php">View All Categories &rarr;</a>
             </div>
             <div class="category-cards-scroll">
                 <?php foreach ($categoryHighlights as $highlight): ?>
@@ -409,18 +410,18 @@ $conn->close();
             </div>
         </section>
 
-        <section class="mb-5">
-            <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap mb-3">
-                <h2 class="fw-bold mb-0" style="font-size: clamp(1.5rem, 2vw, 2rem); color: #0f172a;">Featured Products</h2>
-                <a href="shop.php" class="btn btn-outline-primary btn-sm fw-semibold">View All</a>
+        <section class="storefront-section">
+            <div class="storefront-section-heading">
+                <h2>Featured Products</h2>
+                <a href="shop.php">View All</a>
             </div>
 
             <?php if (empty($featuredProducts)): ?>
-                <div class="card border-0 shadow-sm p-4 text-center text-muted">No featured products available right now.</div>
+                <div class="empty-state">No featured products available right now.</div>
             <?php else: ?>
                 <div class="row g-4">
                     <?php foreach ($featuredProducts as $product): ?>
-                        <div class="col-md-6 col-lg-4 col-xl-3 featured-product-item" data-category-id="<?= (int)$product['category_id'] ?>">
+                        <div class="col-12 col-sm-6 col-lg-4 featured-product-item" data-category-id="<?= (int)$product['category_id'] ?>">
                             <div class="featured-product-card h-100">
                                 <div class="featured-product-header">
                                     <span class="featured-product-tag"><?= htmlspecialchars($product['category_name']) ?></span>
@@ -433,10 +434,10 @@ $conn->close();
                                         </a>
                                     <?php else: ?>
                                         <a href="product_details.php?product_id=<?= (int)$product['product_id'] ?>" class="d-inline-block w-100">
-                                            <div class="d-flex align-items-center justify-content-center text-muted fw-semibold" style="height: 340px;">No Image</div>
+                                            <div class="featured-product-placeholder">No Image</div>
                                         </a>
                                     <?php endif; ?>
-                                    <button type="button" class="featured-add-cart btn btn-outline-primary" data-product-id="<?= (int)$product['product_id'] ?>" title="Add to cart" aria-label="Add to cart">
+                                    <button type="button" class="featured-add-cart" data-product-id="<?= (int)$product['product_id'] ?>" title="Add to cart" aria-label="Add to cart">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5M3.102 4l1.313 7h8.17l1.313-7zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4m7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2m7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/></svg>
                                     </button>
                                 </div>
@@ -452,13 +453,14 @@ $conn->close();
                                     </div>
                                 </div>
 
-                                <a href="product_details.php?product_id=<?= (int)$product['product_id'] ?>" class="btn btn-primary btn-sm w-100">View Product</a>
+                                <a href="product_details.php?product_id=<?= (int)$product['product_id'] ?>" class="featured-product-link">View Product</a>
                             </div>
                         </div>
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
         </section>
+        </div>
     </div>
 
     <div class="page-footer">

@@ -82,8 +82,8 @@ $conn->close();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shop — Bloom &amp; Basket</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
     <link rel="stylesheet" href="assets/customer.css">
     <link rel="stylesheet" href="assets/cart.css">
@@ -114,20 +114,29 @@ $conn->close();
     </div>
 
     <div class="page-content">
-        <div class="card mb-4">
-            <div class="card-header-custom d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                <span>Products</span>
+        <section class="catalog-heading" aria-labelledby="catalog-title">
+            <div>
+                <p class="catalog-eyebrow">Bloom &amp; Basket catalog</p>
+                <h1 id="catalog-title">Shop all products</h1>
+                <p>Discover products, compare options, and continue shopping when you are ready.</p>
             </div>
-            <div class="card-body p-4">
+            <form method="GET" action="browse.php" class="catalog-search" role="search">
+                <label class="visually-hidden" for="browse-search-input">Search catalog</label>
+                <input id="browse-search-input" type="search" name="q" value="<?= htmlspecialchars($searchTerm, ENT_QUOTES) ?>" placeholder="Search products" aria-label="Search catalog">
+                <button type="submit">Search</button>
+            </form>
+        </section>
+
+        <div class="catalog-surface">
                 <?php if (empty($products)): ?>
                     <div class="empty-state"><?php if ($searchTerm !== ''): ?>No products matched “<?= htmlspecialchars($searchTerm) ?>”. Try a different keyword or <a href="shop.php">clear the search</a>.<?php else: ?>No products available right now.<?php endif; ?></div>
                 <?php else: ?>
-                    <div class="row g-4">
+                    <div class="row g-3 product-grid">
                         <?php foreach ($products as $product):
                             $colors = $productColorMap[(int)$product['product_id']] ?? [];
                             $isOutOfStock = ((int)$product['stock_quantity'] <= 0);
                         ?>
-                            <div class="col-sm-6 col-lg-4 col-xl-3">
+                            <div class="col-12 col-sm-6 col-lg-4">
                                 <div class="product-catalog-card <?= $isOutOfStock ? 'opacity-75' : '' ?>" id="pcard-<?= (int)$product['product_id'] ?>">
                                     <div class="product-img-wrap position-relative">
                                             <?php if (!empty($product['image_url'])): ?>
@@ -144,7 +153,7 @@ $conn->close();
 
                                     <div class="product-info">
                                         <div class="catalog-product-name"><?= htmlspecialchars($product['product_name']) ?></div>
-                                        <p class="text-muted small mb-2" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.4em;">
+                                        <p class="catalog-product-description">
                                             <?= htmlspecialchars($product['description'] ?? 'No description provided.') ?>
                                         </p>
                                         <div class="catalog-price">&#8369;<?= number_format((float)$product['price'], 2) ?></div>
@@ -181,7 +190,7 @@ $conn->close();
                                             <div class="d-flex align-items-center gap-2 mt-auto pt-2">
                                                 <input type="number" class="form-control form-control-sm add-qty-input"
                                                        id="add-qty-<?= (int)$product['product_id'] ?>" value="1" min="1" max="<?= (int)$product['stock_quantity'] ?>"
-                                                       style="width: 65px; text-align: center;">
+                                                       aria-label="Quantity for <?= htmlspecialchars($product['product_name'], ENT_QUOTES) ?>">
                                                 <button class="btn-add-cart flex-grow-1"
                                                         id="add-btn-<?= (int)$product['product_id'] ?>"
                                                         onclick="addToCart(<?= (int)$product['product_id'] ?>, this)">
@@ -198,7 +207,6 @@ $conn->close();
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
-            </div>
         </div>
     </div>
 

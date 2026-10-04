@@ -17,7 +17,7 @@ function renderStars(float $rating): string
 
 function renderStarInput(string $name = 'rating'): string
 {
-    $html = '<div class="star-input-group">';
+    $html = '<div class="star-input-group" role="radiogroup" aria-label="Choose a rating">';
     for ($i = 5; $i >= 1; $i--) {
         $html .= '<input type="radio" id="' . $name . '_' . $i . '" name="' . $name . '" value="' . $i . '" required>';
         $html .= '<label for="' . $name . '_' . $i . '" title="' . $i . ' star' . ($i > 1 ? 's' : '') . '">★</label>';
@@ -107,7 +107,6 @@ $conn = getConnection();
 $product = getProductDetails($conn, $productId);
 
 if (!$product) {
-    $conn->close();
     $error = 'Product not found.';
 }
 
@@ -150,39 +149,40 @@ $isOutOfStock = $product ? ((int)$product['stock_quantity'] <= 0) : true;
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Product Details &mdash; Bloom &amp; Basket</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
     <link rel="stylesheet" href="assets/customer.css">
 </head>
-<body class="customer-ui customer-page">
+<body class="customer-ui customer-page product-detail-page">
 
 <?php $customerActivePage = 'shop'; require_once 'includes/customer_nav.php'; ?>
 
-<div id="main-content">
-    <!-- <div class="product-page-header">
-        <h1>Product Details</h1>
-        <a href="shop.php" class="btn btn-outline-primary btn-sm fw-semibold">Back to Shop</a>
-    </div> -->
-
+<main id="main-content">
     <div class="page-content">
         <?php if ($success): ?>
             <div class="alert alert-success alert-dismissible fade show" role="alert">
                 <?= htmlspecialchars($success) ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Dismiss message"></button>
             </div>
         <?php endif; ?>
         <?php if ($error): ?>
             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                 <?= htmlspecialchars($error) ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Dismiss message"></button>
             </div>
         <?php endif; ?>
 
         <?php if ($product): ?>
-            <div class="product-detail-layout mb-4">
-                <div class="product-detail-media card">
-                    <div class="card-body">
+            <nav class="pdp-breadcrumb" aria-label="Breadcrumb">
+                <a href="shop.php">Shop</a>
+                <span aria-hidden="true">/</span>
+                <span aria-current="page"><?= htmlspecialchars($product['product_name']) ?></span>
+            </nav>
+
+            <section class="product-detail-layout" aria-labelledby="product-title">
+                <div class="product-detail-media">
+                    <div class="product-detail-image-stage">
                         <?php if (!empty($product['image_url'])): ?>
                             <img src="<?= htmlspecialchars($product['image_url']) ?>" alt="<?= htmlspecialchars($product['product_name']) ?>" class="product-detail-image">
                         <?php else: ?>
@@ -190,58 +190,69 @@ $isOutOfStock = $product ? ((int)$product['stock_quantity'] <= 0) : true;
                         <?php endif; ?>
                     </div>
                 </div>
-                <div class="product-detail-summary card">
-                    <div class="card-body p-4">
-                        <div class="cat-badge mb-3"><?= htmlspecialchars($product['category_name']) ?></div>
-                        <h2 class="product-detail-title"><?= htmlspecialchars($product['product_name']) ?></h2>
-                        <div class="product-detail-price mb-2">&#8369;<?= number_format((float)$product['price'], 2) ?></div>
-                        <div class="product-detail-stock mb-2">
+                <div class="product-detail-summary">
+                    <div class="product-detail-summary-inner">
+                        <p class="product-detail-category"><?= htmlspecialchars($product['category_name']) ?></p>
+                        <h1 class="product-detail-title" id="product-title"><?= htmlspecialchars($product['product_name']) ?></h1>
+                        <div class="product-detail-price">&#8369;<?= number_format((float)$product['price'], 2) ?></div>
+                        <div class="product-detail-stock <?= $isOutOfStock ? 'is-out' : 'is-available' ?>">
                             <?php if ($isOutOfStock): ?>
-                                <span class="text-danger fw-bold">Out of Stock</span>
+                                Out of stock
                             <?php else: ?>
-                                Stock: <span class="fw-semibold text-dark"><?= (int)$product['stock_quantity'] ?></span>
+                                In stock · <?= (int)$product['stock_quantity'] ?> available
                             <?php endif; ?>
                         </div>
-                        <div class="product-detail-rating mb-3">
+                        <div class="product-detail-rating">
                             <?= renderStars((float)$product['average_rating']) ?>
-                            <span class="text-muted small ms-2"><?= number_format((float)$product['average_rating'], 1) ?> / 5 from <?= (int)$product['review_count'] ?> review<?= (int)$product['review_count'] === 1 ? '' : 's' ?></span>
+                            <span><?= number_format((float)$product['average_rating'], 1) ?> · <?= (int)$product['review_count'] ?> review<?= (int)$product['review_count'] === 1 ? '' : 's' ?></span>
                         </div>
-                        <p class="text-muted product-detail-description"><?= nl2br(htmlspecialchars($product['description'] ?? 'No description provided.')) ?></p>
+                        <div class="product-detail-description"><?= nl2br(htmlspecialchars($product['description'] ?? 'No description provided.')) ?></div>
                         <?php if (!empty($colors) && !$isOutOfStock): ?>
+                        <div class="pdp-option-group">
+                            <span class="color-picker-label">Choose a color</span>
                         <div class="color-picker-wrap">
-                            <span class="color-picker-label">Color:</span>
                             <div class="color-swatches" data-selected="">
                                 <?php foreach ($colors as $clr): ?>
                                 <button type="button"
                                         class="color-swatch"
                                         data-color="<?= htmlspecialchars($clr) ?>"
                                         style="background:<?= colorToCSS($clr) ?>"
-                                        title="<?= htmlspecialchars($clr) ?>">
+                                        title="<?= htmlspecialchars($clr) ?>"
+                                        aria-label="Select <?= htmlspecialchars($clr, ENT_QUOTES) ?>"
+                                        aria-pressed="false">
                                 </button>
                                 <?php endforeach; ?>
                             </div>
-                            <span class="selected-color-label"></span>
+                            <span class="selected-color-label" aria-live="polite">No color selected</span>
+                        </div>
                         </div>
                         <?php endif; ?>
 
-                        <div class="mt-3 d-flex align-items-center gap-2">
-                            <label class="visually-hidden" for="add-qty-<?= (int)$product['product_id'] ?>">Quantity</label>
-                            <input id="add-qty-<?= (int)$product['product_id'] ?>" type="number" class="form-control form-control-sm" value="1" min="1" max="<?= (int)$product['stock_quantity'] ?>" style="width:80px; text-align:center;">
-                            <button type="button" class="btn btn-outline-primary btn-add-cart d-inline-flex align-items-center gap-2" onclick="addToCart(<?= (int)$product['product_id'] ?>, this)">
+                        <div class="pdp-purchase-controls">
+                            <div class="pdp-quantity-field">
+                                <label for="add-qty-<?= (int)$product['product_id'] ?>">Quantity</label>
+                                <input id="add-qty-<?= (int)$product['product_id'] ?>" type="number" value="1" min="1" max="<?= max(1, (int)$product['stock_quantity']) ?>" <?= $isOutOfStock ? 'disabled' : '' ?>>
+                            </div>
+                            <button type="button" class="btn-add-cart pdp-add-button" onclick="addToCart(<?= (int)$product['product_id'] ?>, this)" <?= $isOutOfStock ? 'disabled' : '' ?>>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5M3.102 4l1.313 7h8.17l1.313-7zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4m7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2m7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/></svg>
-                                <span>Add to Cart</span>
+                                <span><?= $isOutOfStock ? 'Out of Stock' : 'Add to Cart' ?></span>
                             </button>
                         </div>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <div class="row g-4">
+            <section class="pdp-reviews" aria-labelledby="reviews-title">
+                <div class="pdp-section-heading">
+                    <p>Community feedback</p>
+                    <h2 id="reviews-title">Reviews <span>(<?= (int)$product['review_count'] ?>)</span></h2>
+                </div>
+            <div class="row g-4 pdp-review-layout">
                 <div class="col-lg-5">
-                    <div class="card h-100">
+                    <div class="card h-100 pdp-review-panel">
                         <div class="card-header-custom">Write a Review</div>
                         <div class="card-body p-4">
-                            <form method="POST" action="product_details.php?product_id=<?= (int)$product['product_id'] ?>">
+                            <form method="POST" action="product_details.php?product_id=<?= (int)$product['product_id'] ?>" class="pdp-review-form">
                                 <div class="mb-3">
                                     <label class="form-label">Rating</label>
                                     <?= renderStarInput('rating') ?>
@@ -250,13 +261,13 @@ $isOutOfStock = $product ? ((int)$product['stock_quantity'] <= 0) : true;
                                     <label for="review_text" class="form-label">Review</label>
                                     <textarea id="review_text" name="review_text" class="form-control" rows="5" maxlength="1000" placeholder="Share your experience with this product." required></textarea>
                                 </div>
-                                <button type="submit" class="btn btn-primary">Submit Review</button>
+                                <button type="submit" class="pdp-review-submit">Submit Review</button>
                             </form>
                         </div>
                     </div>
                 </div>
                 <div class="col-lg-7">
-                    <div class="card h-100">
+                    <div class="card h-100 pdp-review-panel">
                         <div class="card-header-custom">Customer Reviews</div>
                         <div class="card-body p-4">
                             <?php if (empty($reviews)): ?>
@@ -278,6 +289,7 @@ $isOutOfStock = $product ? ((int)$product['stock_quantity'] <= 0) : true;
                     </div>
                 </div>
             </div>
+            </section>
         <?php else: ?>
             <div class="card">
                 <div class="card-body p-4">
@@ -290,7 +302,7 @@ $isOutOfStock = $product ? ((int)$product['stock_quantity'] <= 0) : true;
     <div class="page-footer">
         &copy; <?= date('Y') ?> Bloom &amp; Basket
     </div>
-</div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <div id="cart-toast-container"></div>
@@ -314,12 +326,16 @@ document.querySelectorAll('.color-swatches').forEach(function(container) {
     container.querySelectorAll('.color-swatch').forEach(function(swatch) {
         swatch.addEventListener('click', function() {
             var already = container.dataset.selected === this.dataset.color;
-            container.querySelectorAll('.color-swatch').forEach(function(s) { s.classList.remove('selected'); });
+            container.querySelectorAll('.color-swatch').forEach(function(s) {
+                s.classList.remove('selected');
+                s.setAttribute('aria-pressed', 'false');
+            });
             if (already) {
                 container.dataset.selected = '';
-                container.nextElementSibling.textContent = '';
+                container.nextElementSibling.textContent = 'No color selected';
             } else {
                 this.classList.add('selected');
+                this.setAttribute('aria-pressed', 'true');
                 container.dataset.selected = this.dataset.color;
                 container.nextElementSibling.textContent = this.dataset.color;
             }

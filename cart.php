@@ -43,34 +43,35 @@ function renderCartIcon(string $class = ''): string {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Customer Shopping Cart — Bloom &amp; Basket</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
     <link rel="stylesheet" href="assets/customer.css">
     <link rel="stylesheet" href="assets/cart.css">
 </head>
-<body class="customer-ui customer-page">
+<body class="customer-ui customer-page cart-page">
 
 <?php $customerActivePage = 'cart'; require_once 'includes/customer_nav.php'; ?>
 
-<div id="main-content">
+<main id="main-content">
 
     <!-- ── Topbar ─────────────────────────────────────────── -->
-    <div class="page-topbar d-flex align-items-center justify-content-between">
+    <header class="page-topbar cart-page-heading d-flex align-items-center justify-content-between">
         <div>
-            <h1>Customer Shopping Cart</h1>
-            <!-- <small class="text-muted">Review, modify quantities, change colors, or remove items</small> -->
+            <p class="cart-page-eyebrow">Your bag</p>
+            <h1>Shopping Cart</h1>
+            <p class="cart-page-intro">Review your products and choose which items to take to checkout.</p>
         </div>
-        <div class="d-flex align-items-center gap-3">
-            <a href="shop.php" class="btn btn-outline-primary btn-sm fw-semibold">
+        <div class="cart-page-heading-actions d-flex align-items-center gap-3">
+            <a href="shop.php" class="cart-continue-link">
                 &larr; Continue Shopping
             </a>
             <span class="topbar-cart-badge" id="topbar-cart-count">
                 <span class="badge-icon"><?= renderCartIcon('cart-icon') ?></span>
-                <span id="topbar-qty"><?= $total_qty ?></span> item<?= $total_qty !== 1 ? 's' : '' ?>
+                <span id="topbar-qty"><?= $total_qty ?></span> items
             </span>
         </div>
-    </div>
+    </header>
 
     <div class="page-content">
 
@@ -79,13 +80,13 @@ function renderCartIcon(string $class = ''): string {
             <!-- ── Left: Cart Table ────────────────────────── -->
             <div class="col-xl-8">
 
-                <div class="card" id="cart-section">
+                <section class="card cart-items-panel" id="cart-section" aria-labelledby="cart-items-title">
                     <div class="card-header-custom d-flex align-items-center justify-content-between">
-                        <span>Items in Cart (<span id="cart-row-count-badge"><?= count($cart_items) ?></span>)</span>
-                        <button class="btn-clear-all" id="btn-clear-all"
+                        <span id="cart-items-title">Selected items (<span id="cart-row-count-badge"><?= count($cart_items) ?></span>)</span>
+                        <button type="button" class="btn-clear-all" id="btn-clear-all"
                                 onclick="clearCart()"
                                 style="<?= empty($cart_items) ? 'display:none' : '' ?>">
-                            🗑 Clear All Items
+                            Clear cart
                         </button>
                     </div>
                     <div class="card-body p-0">
@@ -94,19 +95,19 @@ function renderCartIcon(string $class = ''): string {
                         <div id="cart-empty-state" class="cart-empty-state"
                              style="<?= !empty($cart_items) ? 'display:none' : '' ?>">
                             <div class="empty-icon"><?= renderCartIcon('cart-icon') ?></div>
-                            <div class="empty-title">Your shopping cart is empty</div>
-                            <div class="empty-sub mb-3">Explore our product catalog and add items you want to purchase.</div>
-                            <a href="shop.php" class="btn btn-primary btn-sm">Shop Products</a>
+                            <h2 class="empty-title">Your cart is ready for something new</h2>
+                            <p class="empty-sub">Explore the catalog and add products you would like to purchase.</p>
+                            <a href="shop.php" class="cart-empty-action">Shop Products</a>
                         </div>
 
                         <!-- Cart table -->
                         <div id="cart-table-wrap"
                              style="<?= empty($cart_items) ? 'display:none' : '' ?>">
                             <div class="table-responsive">
-                                <table class="table table-hover mb-0" id="cart-table">
+                                <table class="table mb-0 cart-items-table" id="cart-table">
                                     <thead>
                                         <tr>
-                                            <th style="width:40px; text-align: center;"><input type="checkbox" class="form-check-input" id="select-all-cb" checked onchange="toggleAllCheckboxes(this)"></th>
+                                            <th style="width:40px; text-align: center;"><input type="checkbox" class="form-check-input" id="select-all-cb" checked aria-label="Select all cart items" onchange="toggleAllCheckboxes(this)"></th>
                                             <th style="width:64px">Image</th>
                                             <th>Product Name</th>
                                             <th>Unit Price</th>
@@ -127,15 +128,15 @@ function renderCartIcon(string $class = ''): string {
                                             data-price="<?= $item['price'] ?>">
 
                                             <td style="text-align: center;">
-                                                <input type="checkbox" class="form-check-input item-select-cb" value="<?= $item['cart_item_id'] ?>" name="selected_items[]" checked onchange="recalcTotals()">
+                                                <input type="checkbox" class="form-check-input item-select-cb" value="<?= $item['cart_item_id'] ?>" name="selected_items[]" checked aria-label="Select <?= htmlspecialchars($item['product_name'], ENT_QUOTES) ?> for checkout" onchange="recalcTotals()">
                                             </td>
 
                                             <td>
                                                 <?php if (!empty($item['image_url'])): ?>
                                                     <img src="<?= htmlspecialchars($item['image_url']) ?>"
-                                                         class="product-thumb" alt="">
+                                                         class="product-thumb" alt="<?= htmlspecialchars($item['product_name'], ENT_QUOTES) ?>">
                                                 <?php else: ?>
-                                                    <div class="thumb-placeholder">🛍️</div>
+                                                    <div class="thumb-placeholder" aria-hidden="true"><?= renderCartIcon('cart-icon') ?></div>
                                                 <?php endif; ?>
                                             </td>
 
@@ -149,6 +150,7 @@ function renderCartIcon(string $class = ''): string {
                                             <td>
                                                 <?php if (!empty($item_colors)): ?>
                                                 <select class="form-select form-select-sm cart-color-select"
+                                                        aria-label="Color for <?= htmlspecialchars($item['product_name'], ENT_QUOTES) ?>"
                                                         onchange="updateCartItem(<?= $item['cart_item_id'] ?>, null, this.value)">
                                                     <option value="">Standard</option>
                                                     <?php foreach ($item_colors as $clr): ?>
@@ -165,24 +167,25 @@ function renderCartIcon(string $class = ''): string {
 
                                             <td>
                                                 <div class="cart-qty-control">
-                                                    <button class="qty-btn" onclick="changeQty(<?= $item['cart_item_id'] ?>, -1)">−</button>
+                                                    <button type="button" class="qty-btn" aria-label="Decrease quantity for <?= htmlspecialchars($item['product_name'], ENT_QUOTES) ?>" onclick="changeQty(<?= $item['cart_item_id'] ?>, -1)">−</button>
                                                     <input  type="number"
                                                             class="qty-input"
                                                             id="qty-<?= $item['cart_item_id'] ?>"
                                                             value="<?= $item['quantity'] ?>"
                                                             min="1"
-                                                            max="<?= (int)$item['stock_quantity'] ?>"
+                                                            max="<?= max(1, (int)$item['stock_quantity']) ?>"
+                                                            aria-label="Quantity for <?= htmlspecialchars($item['product_name'], ENT_QUOTES) ?>"
                                                             onchange="updateCartItem(<?= $item['cart_item_id'] ?>, parseInt(this.value) || 1, null)">
-                                                    <button class="qty-btn" onclick="changeQty(<?= $item['cart_item_id'] ?>, 1)">+</button>
+                                                    <button type="button" class="qty-btn" aria-label="Increase quantity for <?= htmlspecialchars($item['product_name'], ENT_QUOTES) ?>" onclick="changeQty(<?= $item['cart_item_id'] ?>, 1)">+</button>
                                                 </div>
                                             </td>
 
                                             <td class="item-subtotal">&#8369;<?= number_format($subtotal, 2) ?></td>
 
                                             <td>
-                                                <button class="btn-remove-item"
+                                                <button type="button" class="btn-remove-item"
                                                         onclick="removeCartItem(<?= $item['cart_item_id'] ?>)"
-                                                        title="Remove item from cart">
+                                                        aria-label="Remove <?= htmlspecialchars($item['product_name'], ENT_QUOTES) ?> from cart">
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
                                                 </button>
                                             </td>
@@ -193,25 +196,25 @@ function renderCartIcon(string $class = ''): string {
                             </div>
                         </div>
                     </div>
-                </div>
+                </section>
 
             </div><!-- /col-xl-8 -->
 
             <!-- ── Right: Order Summary ─────────────────────── -->
             <div class="col-xl-4">
-                <div class="cart-summary-panel">
+                <aside class="cart-summary-panel" aria-labelledby="cart-summary-title">
                     <div class="summary-header">
-                        <span class="summary-title">Shopping Cart Summary</span>
+                        <h2 class="summary-title" id="cart-summary-title">Order Summary</h2>
                         <!-- <span class="summary-icon">🧾</span> -->
                     </div>
 
                     <div class="summary-lines">
                         <div class="summary-line">
-                            <span class="summary-line-label">Distinct Items</span>
+                            <span class="summary-line-label">Selected products</span>
                             <span class="summary-line-value" id="distinct-items-count"><?= count($cart_items) ?> line item<?= count($cart_items) !== 1 ? 's' : '' ?></span>
                         </div>
                         <div class="summary-line">
-                            <span class="summary-line-label">Total Quantity</span>
+                            <span class="summary-line-label">Total quantity</span>
                             <span class="summary-line-value" id="total-items-count"><?= $total_qty ?> item<?= $total_qty !== 1 ? 's' : '' ?></span>
                         </div>
                     </div>
@@ -220,20 +223,16 @@ function renderCartIcon(string $class = ''): string {
 
                     <div class="summary-grand-total">
                         <span>Grand Total</span>
-                        <span id="grand-total-amount">&#8369;<?= number_format($grand_total, 2) ?></span>
+                        <span id="grand-total-amount" aria-live="polite">&#8369;<?= number_format($grand_total, 2) ?></span>
                     </div>
 
-                    <a href="javascript:void(0)" class="btn-checkout text-decoration-none text-center" onclick="submitCheckout()">
+                    <button type="button" class="btn-checkout" id="checkout-btn" onclick="submitCheckout()" <?= empty($cart_items) ? 'disabled' : '' ?>>
                         Proceed to Checkout
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" style="margin-left:6px"><path fill-rule="evenodd" d="M4 8a.5.5 0 0 1 .5-.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5A.5.5 0 0 1 4 8z"/></svg>
-                    </a>
-
-                    <button class="btn-clear-cart-sm" id="summary-clear-btn"
-                            onclick="clearCart()"
-                            style="<?= empty($cart_items) ? 'display:none' : '' ?>">
-                        🗑 Clear Entire Cart
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M4 8a.5.5 0 0 1 .5-.5h5.793L8.146 5.354a.5.5 0 1 1 .708-.708l3 3a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708-.708L10.293 8.5H4.5A.5.5 0 0 1 4 8z"/></svg>
                     </button>
-                </div>
+                    <p class="cart-summary-note">Final order details are reviewed before payment.</p>
+
+                </aside>
             </div><!-- /col-xl-4 -->
 
         </div><!-- /row -->
@@ -242,10 +241,10 @@ function renderCartIcon(string $class = ''): string {
     <div class="page-footer">
         &copy; <?= date('Y') ?> Bloom &amp; Basket
     </div>
-</div><!-- /main-content -->
+</main><!-- /main-content -->
 
 <!-- Toast container -->
-<div id="cart-toast-container"></div>
+<div id="cart-toast-container" aria-live="polite" aria-atomic="true"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
@@ -268,8 +267,9 @@ function recalcTotals() {
     var totalQty   = 0;
     var grandTotal = 0;
     var rowCount   = 0;
+    var cartRows   = Array.from(document.querySelectorAll('.cart-row'));
 
-    document.querySelectorAll('.cart-row').forEach(function(row) {
+    cartRows.forEach(function(row) {
         var cb       = row.querySelector('.item-select-cb');
         var qty      = parseInt(row.querySelector('.qty-input').value) || 0;
         var price    = parseFloat(row.dataset.price) || 0;
@@ -296,13 +296,22 @@ function recalcTotals() {
     var tb = document.getElementById('topbar-qty');
     if (tb) tb.textContent = totalQty;
 
+    var masterCb = document.getElementById('select-all-cb');
+    if (masterCb) {
+        masterCb.checked = cartRows.length > 0 && rowCount === cartRows.length;
+        masterCb.indeterminate = rowCount > 0 && rowCount < cartRows.length;
+    }
+
+    var checkoutBtn = document.getElementById('checkout-btn');
+    if (checkoutBtn) checkoutBtn.disabled = rowCount === 0;
+
     // Empty state toggle
     var emptyState   = document.getElementById('cart-empty-state');
     var tableWrap    = document.getElementById('cart-table-wrap');
     var clearAllBtn  = document.getElementById('btn-clear-all');
     var summClearBtn = document.getElementById('summary-clear-btn');
 
-    if (rowCount === 0) {
+    if (cartRows.length === 0) {
         emptyState.style.display   = '';
         tableWrap.style.display    = 'none';
         if (clearAllBtn)  clearAllBtn.style.display  = 'none';
@@ -323,6 +332,10 @@ async function updateCartItem(cartItemId, qty, color) {
     var currentQty = qty !== null && qty !== undefined
         ? qty
         : parseInt(row.querySelector('.qty-input').value) || 1;
+    var qtyInput = row.querySelector('.qty-input');
+    var maxQty = parseInt(qtyInput.max) || Number.MAX_SAFE_INTEGER;
+    currentQty = Math.min(maxQty, Math.max(1, currentQty));
+    qtyInput.value = currentQty;
 
     var colorSel = row.querySelector('.cart-color-select');
     var currentColor = (color !== null && color !== undefined)
@@ -361,7 +374,8 @@ async function updateCartItem(cartItemId, qty, color) {
 /* ── Change qty via +/− buttons ──────────────────────────────── */
 function changeQty(cartItemId, delta) {
     var input  = document.getElementById('qty-' + cartItemId);
-    var newQty = Math.max(1, (parseInt(input.value) || 1) + delta);
+    var maxQty = parseInt(input.max) || Number.MAX_SAFE_INTEGER;
+    var newQty = Math.min(maxQty, Math.max(1, (parseInt(input.value) || 1) + delta));
     input.value = newQty;
     updateCartItem(cartItemId, newQty, null);
 }

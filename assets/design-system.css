@@ -1,0 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
+/*
+ * Bloom & Basket design foundation
+ *
+ * This file owns shared design tokens, typography, focus treatment, and
+ * motion preferences. Page and component layout belongs in the stylesheets
+ * documented in docs/design-adoption.md.
+ */
+
+:root {
+    /* Typography */
+    --font-body: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --font-display: 'Plus Jakarta Sans', 'Inter', 'Segoe UI', system-ui, sans-serif;
+
+    /* Core retail palette adapted from DESIGN.md */
+    --color-ink: #111111;
+    --color-canvas: #ffffff;
+    --color-surface: #f5f5f5;
+    --color-text: #111111;
+    --color-text-soft: #39393b;
+    --color-text-muted: #707072;
+    --color-border: #cacacb;
+    --color-border-soft: #e5e5e5;
+
+    /* Semantic colors */
+    --color-sale: #d30005;
+    --color-danger: #b8433a;
+    --color-success: #007d48;
+    --color-info: #1151ff;
+
+    /* 8px-based spacing rhythm */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-12: 3rem;
+
+    /* Shape vocabulary */
+    --radius-none: 0;
+    --radius-sm: 0.5rem;
+    --radius-md: 1.125rem;
+    --radius-lg: 1.5rem;
+    --radius-pill: 9999px;
+
+    /* Interaction */
+    --focus-ring-color: rgba(17, 17, 17, 0.24);
+    --focus-ring: 0 0 0 3px var(--focus-ring-color);
+    --motion-fast: 150ms;
+    --motion-standard: 220ms;
+    --motion-easing: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+body,
+button,
+input,
+select,
+textarea,
+table {
+    font-family: var(--font-body);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.brand-mark,
+.sidebar-brand span,
+.customer-nav-brand,
+.page-section-title,
+.card-header-custom,
+.card-title,
+.card-label,
+.insight-title,
+.insight-value,
+.customer-stat .label,
+.customer-stat .value,
+.summary-title,
+.summary-grand-total,
+.category-card-title,
+.featured-product-name,
+.featured-product-price,
+.catalog-product-name,
+.catalog-price,
+.cart-product-name,
+.item-subtotal,
+.product-detail-title,
+.product-detail-price {
+    font-family: var(--font-display);
+}
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+    }
+}
