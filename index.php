@@ -14,6 +14,15 @@ $heroImage = 'assets/hero-photo.png';
 
 $totalProducts = (int)($conn->query('SELECT COUNT(*) AS total FROM products')->fetch_assoc()['total'] ?? 0);
 
+$registeredCustomerCount = (int)($conn->query('SELECT COUNT(*) AS total FROM users')->fetch_assoc()['total'] ?? 0);
+$recentCustomerProfiles = $conn->query(
+    "SELECT UPPER(CONCAT(LEFT(TRIM(first_name), 1), LEFT(TRIM(last_name), 1))) AS initials
+     FROM users
+     WHERE TRIM(first_name) <> '' OR TRIM(last_name) <> ''
+     ORDER BY created_at DESC, user_id DESC
+     LIMIT 4"
+)->fetch_all(MYSQLI_ASSOC);
+
 $categoryRows = $conn->query(
     'SELECT category_id, category_name, description
      FROM categories
@@ -322,6 +331,19 @@ $conn->close();
                     <a href="shop.php" class="btn btn-light">Shop Products</a>
                     <a href="about_us.php" class="btn btn-outline-light">Learn More</a>
                 </div>
+
+                <?php if ($registeredCustomerCount > 0): ?>
+                    <div class="hero-customer-proof" aria-label="<?= number_format($registeredCustomerCount) ?> registered customers">
+                        <?php if (!empty($recentCustomerProfiles)): ?>
+                            <div class="hero-customer-avatars" aria-hidden="true">
+                                <?php foreach ($recentCustomerProfiles as $profile): ?>
+                                    <span class="hero-customer-avatar"><?= htmlspecialchars($profile['initials'], ENT_QUOTES) ?></span>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                        <p>Join <strong><?= number_format($registeredCustomerCount) ?></strong> registered <?= $registeredCustomerCount === 1 ? 'customer' : 'customers' ?></p>
+                    </div>
+                <?php endif; ?>
             </div>
         </section>
 

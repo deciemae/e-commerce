@@ -6,7 +6,6 @@ require_once 'includes/customer_system.php';
 requireCustomerLogin();
 
 $conn = getConnection();
-ensureCustomerTables($conn);
 
 $customer = fetchCurrentCustomer($conn);
 if (!$customer) {
@@ -46,39 +45,39 @@ $conn->close();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order History — Bloom &amp; Basket</title>
+    <title>Order History &mdash; Bloom &amp; Basket</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
     <link rel="stylesheet" href="assets/customer.css">
 </head>
-<body class="customer-ui customer-page">
+<body class="customer-ui customer-page customer-account-surface">
 
 <?php $customerActivePage = 'orders'; require_once 'includes/customer_nav.php'; ?>
 
-<div id="main-content">
-    <div class="page-topbar d-flex justify-content-between align-items-center flex-wrap gap-3">
-        <div>
-            <h1>Order History</h1>
-            <div class="form-muted">Review previous orders and open the tracking view for each one.</div>
-        </div>
-        <div class="d-flex gap-2 flex-wrap">
-            <a href="customer_dashboard.php" class="btn btn-outline-primary btn-sm">Dashboard</a>
-            <a href="shop.php" class="btn btn-outline-primary btn-sm">Shop</a>
-            <a href="customer_logout.php" class="btn btn-outline-secondary btn-sm">Logout</a>
-        </div>
-    </div>
+<main id="main-content" class="customer-account-page">
+    <div class="account-shell">
+        <header class="account-page-header">
+            <div>
+                <p class="account-eyebrow">Customer account</p>
+                <h1>Order history</h1>
+                <p>Review every order and open its current tracking details.</p>
+            </div>
+            <a href="shop.php" class="account-primary-link">Shop products</a>
+        </header>
 
-    <div class="page-content">
-        <div class="customer-card">
-            <div class="card-header">Previous Orders</div>
+        <?php $customerAccountPage = 'orders'; require 'includes/customer_account_nav.php'; ?>
+
+        <div class="page-content account-content">
+        <section class="customer-card account-card" aria-labelledby="previous-orders-title">
+            <div class="card-header"><h2 id="previous-orders-title">Previous orders</h2></div>
             <div class="card-body p-0">
                 <?php if (empty($orders)): ?>
                     <div class="empty-panel m-3">You have no orders yet.</div>
                 <?php else: ?>
                     <div class="table-responsive">
-                        <table class="table mb-0 align-middle">
+                        <table class="table mb-0 align-middle account-orders-table">
                             <thead>
                                 <tr>
                                     <th>Image</th>
@@ -93,20 +92,20 @@ $conn->close();
                             <tbody>
                                 <?php foreach ($orders as $order): ?>
                                     <tr>
-                                        <td>
+                                        <td data-label="Product">
                                             <?php if (!empty($order['first_image_url'])): ?>
-                                                <img src="<?= htmlspecialchars($order['first_image_url']) ?>" alt="Product image" style="width: 48px; height: 48px; object-fit: cover; border-radius: 10px; border: 1px solid rgba(148,163,184,.3); background: #f8fafc;">
+                                                <img src="<?= htmlspecialchars($order['first_image_url'], ENT_QUOTES) ?>" alt="Product from order #<?= (int)$order['order_id'] ?>" class="account-order-image">
                                             <?php else: ?>
-                                                <div style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid rgba(148,163,184,.3); background: #f8fafc; color: #94a3b8; font-size: 1.1rem;">🛍️</div>
+                                                <span class="account-order-image account-order-image-placeholder" aria-hidden="true"></span>
                                             <?php endif; ?>
                                         </td>
-                                        <td>#<?= (int)$order['order_id'] ?></td>
-                                        <td><?= htmlspecialchars(date('M d, Y h:i A', strtotime($order['order_date']))) ?></td>
-                                        <td><span class="order-status-badge <?= htmlspecialchars(orderStatusBadgeClass((string)$order['status'])) ?>"><?= htmlspecialchars($order['status']) ?></span></td>
-                                        <td><?= (int)$order['item_count'] ?></td>
-                                        <td>₱<?= number_format((float)$order['total_amount'], 2) ?></td>
-                                        <td class="text-end">
-                                            <a href="customer_order_tracking.php?order_id=<?= (int)$order['order_id'] ?>" class="btn btn-outline-primary btn-sm">Track</a>
+                                        <td data-label="Order"><span class="account-cell-value">#<?= (int)$order['order_id'] ?></span></td>
+                                        <td data-label="Date"><span class="account-cell-value"><?= htmlspecialchars(date('M d, Y h:i A', strtotime($order['order_date']))) ?></span></td>
+                                        <td data-label="Status"><span class="order-status-badge <?= htmlspecialchars(orderStatusBadgeClass((string)$order['status'])) ?>"><?= htmlspecialchars($order['status']) ?></span></td>
+                                        <td data-label="Items"><span class="account-cell-value"><?= (int)$order['item_count'] ?></span></td>
+                                        <td data-label="Total"><span class="account-cell-value">&#8369;<?= number_format((float)$order['total_amount'], 2) ?></span></td>
+                                        <td data-label="Action" class="text-end">
+                                            <a href="customer_order_tracking.php?order_id=<?= (int)$order['order_id'] ?>" class="account-row-action">Track order</a>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -115,13 +114,14 @@ $conn->close();
                     </div>
                 <?php endif; ?>
             </div>
+        </section>
         </div>
     </div>
 
     <div class="page-footer">
         &copy; <?= date('Y') ?> Bloom &amp; Basket
     </div>
-</div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>

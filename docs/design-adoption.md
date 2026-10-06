@@ -84,6 +84,8 @@ Do not duplicate token declarations or global typography rules in page styleshee
 - `COMPLETED`: Flat product-card image stage, metadata, price, swatches, and pill actions.
 - `COMPLETED`: Storefront category filters and 3-column desktop, 2-column tablet, and
   1-column narrow-mobile catalog grid.
+- `COMPLETED`: Photography-led About page with an editorial story layout, factual quick-fact
+  rail, mission and product-offer panels, and accessible contact links.
 - `COMPLETED`: Exact 390px browser measurement confirmed that the document, navigation,
   hero, catalog search, and first product card remain within the viewport.
 
@@ -92,13 +94,25 @@ Do not duplicate token declarations or global typography rules in page styleshee
 - `COMPLETED`: Responsive product details with a photography-first image stage, clear product
   hierarchy, accessible color and rating controls, stock-aware purchasing controls, and flat
   review panels.
-- Cart controls and order summary.
-- Checkout form and confirmation.
+- `COMPLETED`: Responsive cart controls with flat product rows, accessible selection and
+  quantity controls, an empty state, and a focused order summary that keeps checkout as the
+  single primary action.
+- `COMPLETED`: Responsive checkout form and order confirmation with server-authoritative
+  totals, inventory checks, address ownership enforcement, transactional order writes, CSRF
+  protection, and truthful pending-payment language.
 
 ### Phase 4 - Customer account
 
-- Login and registration.
-- Dashboard, profile, addresses, order history, and tracking.
+- `COMPLETED`: Responsive login and registration with a shared photography-first layout,
+  accessible forms, CSRF protection, session-ID regeneration, and generic authentication
+  failure messaging.
+- `COMPLETED`: Responsive dashboard, profile, address book, order history, and order tracking
+  with a shared account navigation and flat operational layout.
+- `COMPLETED`: Profile and address writes use CSRF protection, server-side validation,
+  ownership-scoped queries, generic failure messaging, and transactional address changes.
+- `COMPLETED`: Desktop and narrow-mobile browser checks cover the five protected account
+  routes, including typography, touch-target sizing, navigation collapse, and horizontal
+  overflow.
 
 ### Phase 5 - Administrator experience
 
@@ -125,9 +139,17 @@ report the phase as not visually verified.
   The navigation now uses an accessible toggle without increasing the fixed header height.
 - Several PHP pages still contain embedded `<style>` blocks. Migrate them only when the owning
   page is redesigned so visual behavior can be compared before and after.
-- `PROVISIONAL`: Catalog presentation is scoped to `.catalog-surface` in `assets/cart.css`,
-  while the redesigned product-details route is scoped to `.product-detail-page` in
-  `assets/customer.css`. Older unscoped declarations remain until the cart and checkout routes
-  are visually reviewed and can be consolidated safely.
+- `PROVISIONAL`: Catalog, cart, and checkout presentation is scoped in `assets/cart.css`, while
+  the redesigned product-details route is scoped to `.product-detail-page` in
+  `assets/customer.css`. Older unscoped declarations remain and can be consolidated only in a
+  separately reviewed cleanup.
+- `PROPOSED`: The flat checkout and payment-selection pattern is the initial Bloom & Basket
+  interpretation because `DESIGN.md` does not define checkout-specific form styling.
+- `PROPOSED`: The homepage customer-proof row uses the live registered-customer count and
+  privacy-preserving initials from recent accounts because `DESIGN.md` does not define a
+  social-proof pattern and the current customer schema has no profile-photo field.
+- `PROPOSED`: The split editorial About-page hero and numbered offer list extend the existing
+  flat, photography-first storefront vocabulary because `DESIGN.md` does not define an About
+  page pattern.
 - The generated `DESIGN.md` contains encoding artifacts and synthesized mobile guidance. Treat
   those passages as reference material, not verified implementation evidence.

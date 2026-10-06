@@ -10,112 +10,100 @@ $customerActivePage = 'about';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>About Us — Bloom &amp; Basket</title>
+    <title>About Us &mdash; Bloom &amp; Basket</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
     <link rel="stylesheet" href="assets/customer.css">
 </head>
-<body class="customer-ui customer-page">
+<body class="customer-ui customer-page about-page">
 
 <?php require_once 'includes/customer_nav.php'; ?>
 
-<div id="main-content">
-    <div class="page-content">
-        <div class="customer-hero mb-4">
-            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
-                <div>
-                    <div class="small text-uppercase text-white-50 fw-semibold mb-2">Our Story</div>
-                    <h1 class="display-6 fw-bold mb-2">Bloom &amp; Basket</h1>
-                    <p class="mb-0">Thoughtful home essentials, everyday favorites, and products designed to make life feel lighter and more beautiful.</p>
-                </div>
-                <a href="shop.php" class="btn btn-light btn-sm fw-semibold">Shop Now</a>
-            </div>
+<main id="main-content">
+    <section class="about-hero" aria-labelledby="about-page-title">
+        <div class="about-hero-copy">
+            <p class="about-eyebrow">Our story</p>
+            <h1 id="about-page-title">Everyday living, thoughtfully gathered.</h1>
+            <p class="about-hero-intro">Thoughtful home essentials, everyday favorites, and products selected to make daily life feel lighter and more beautiful.</p>
+            <a href="shop.php" class="about-primary-action">Shop products</a>
+        </div>
+        <figure class="about-hero-media">
+            <img src="assets/hero-image.jpg" alt="A neutral collection of clothing, accessories, and gift bags" width="512" height="287">
+        </figure>
+    </section>
+
+    <section class="about-story about-section" aria-labelledby="about-story-title">
+        <div class="about-section-heading">
+            <p class="about-eyebrow">Who we are</p>
+            <h2 id="about-story-title">Made for the moments that make up a day.</h2>
+        </div>
+        <div class="about-story-copy">
+            <p>Bloom &amp; Basket is a modern e-commerce store that brings together beautiful, practical, and affordable items for everyday living. We believe shopping should feel personal, simple, and inspiring, so we curate products that help customers organize, decorate, and enjoy their homes and routines.</p>
+            <p>From cozy essentials to lifestyle upgrades, our business was built to support customers who want quality products with a warm, welcoming shopping experience. We focus on items that add comfort, convenience, and charm to daily life while staying accessible to families and individuals alike.</p>
+        </div>
+    </section>
+
+    <section class="about-facts" aria-label="Bloom and Basket quick facts">
+        <div class="about-fact">
+            <span>Business type</span>
+            <strong>Lifestyle &amp; home essentials</strong>
+        </div>
+        <div class="about-fact">
+            <span>Founded</span>
+            <strong>2024</strong>
+        </div>
+        <div class="about-fact">
+            <span>Location</span>
+            <strong>Makati City, Philippines</strong>
+        </div>
+    </section>
+
+    <section class="about-purpose about-section" aria-labelledby="about-mission-title">
+        <div class="about-purpose-panel">
+            <p class="about-eyebrow">Our mission</p>
+            <h2 id="about-mission-title">Style, practicality, and convenience in one place.</h2>
+            <p>Our mission is to make quality lifestyle products easy to discover, enjoyable to buy, and meaningful to use. We aim to bring together style, practicality, and convenience so customers can build spaces and routines they genuinely love.</p>
         </div>
 
-        <div class="row g-4 mb-4">
-            <div class="col-lg-8">
-                <div class="customer-card h-100">
-                    <div class="card-header">Who We Are</div>
-                    <div class="card-body p-4">
-                        <p class="mb-3">Bloom &amp; Basket is a modern e-commerce store that brings together beautiful, practical, and affordable items for everyday living. We believe shopping should feel personal, simple, and inspiring, so we curate products that help customers organize, decorate, and enjoy their homes and routines.</p>
-                        <p class="mb-0">From cozy essentials to lifestyle upgrades, our business was built to support customers who want quality products with a warm, welcoming shopping experience. We focus on items that add comfort, convenience, and charm to daily life while staying accessible to families and individuals alike.</p>
-                    </div>
-                </div>
-            </div>
+        <div class="about-offer-panel">
+            <p class="about-eyebrow">What we offer</p>
+            <h2>Useful finds for everyday life.</h2>
+            <ul class="about-offer-list">
+                <li><span>01</span>Home and d&eacute;cor essentials</li>
+                <li><span>02</span>Kitchen and daily-use products</li>
+                <li><span>03</span>Seasonal lifestyle items</li>
+                <li><span>04</span>Well-designed everyday accessories</li>
+            </ul>
+        </div>
+    </section>
 
-            <div class="col-lg-4">
-                <div class="customer-card h-100">
-                    <div class="card-header">Quick Facts</div>
-                    <div class="card-body p-4">
-                        <div class="mb-3">
-                            <div class="text-muted small text-uppercase fw-semibold">Business Type</div>
-                            <div class="fw-bold">Lifestyle &amp; Home Essentials Store</div>
-                        </div>
-                        <div class="mb-3">
-                            <div class="text-muted small text-uppercase fw-semibold">Founded</div>
-                            <div class="fw-bold">2024</div>
-                        </div>
-                        <div class="mb-0">
-                            <div class="text-muted small text-uppercase fw-semibold">Location</div>
-                            <div class="fw-bold">Makati City, Philippines</div>
-                        </div>
-                    </div>
-                </div>
+    <section class="about-contact about-section" aria-labelledby="about-contact-title">
+        <div>
+            <p class="about-eyebrow">Contact us</p>
+            <h2 id="about-contact-title">We&rsquo;d love to hear from you.</h2>
+        </div>
+        <div class="about-contact-list">
+            <div>
+                <span>Email</span>
+                <a href="mailto:hello@bloomandbasket.com">hello@bloomandbasket.com</a>
+            </div>
+            <div>
+                <span>Phone</span>
+                <a href="tel:+639171234567">+63 917 123 4567</a>
+            </div>
+            <div>
+                <span>Address</span>
+                <address>18 Orchard Lane, Makati City, Philippines</address>
             </div>
         </div>
+    </section>
+</main>
 
-        <div class="row g-4 mb-4">
-            <div class="col-md-6">
-                <div class="customer-card h-100">
-                    <div class="card-header">Our Mission</div>
-                    <div class="card-body p-4">
-                        <p class="mb-0">Our mission is to make quality lifestyle products easy to discover, enjoyable to buy, and meaningful to use. We aim to bring together style, practicality, and convenience so customers can build spaces and routines they genuinely love.</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-6">
-                <div class="customer-card h-100">
-                    <div class="card-header">What We Offer</div>
-                    <div class="card-body p-4">
-                        <ul class="mb-0 ps-3">
-                            <li>Home and décor essentials</li>
-                            <li>Kitchen and daily-use products</li>
-                            <li>Seasonal lifestyle items</li>
-                            <li>Well-designed accessories for everyday living</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="customer-card">
-            <div class="card-header">Contact Us</div>
-            <div class="card-body p-4">
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <div class="fw-semibold mb-1">Email</div>
-                        <div class="text-muted">hello@bloomandbasket.com</div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="fw-semibold mb-1">Phone</div>
-                        <div class="text-muted">+63 917 123 4567</div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="fw-semibold mb-1">Address</div>
-                        <div class="text-muted">18 Orchard Lane, Makati City, Philippines</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="page-footer">
-        &copy; <?= date('Y') ?> Bloom &amp; Basket
-    </div>
-</div>
+<footer class="page-footer">
+    &copy; <?= date('Y') ?> Bloom &amp; Basket
+</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>

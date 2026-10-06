@@ -6,7 +6,6 @@ require_once 'includes/customer_system.php';
 requireCustomerLogin();
 
 $conn = getConnection();
-ensureCustomerTables($conn);
 
 $customer = fetchCurrentCustomer($conn);
 if (!$customer) {
@@ -65,66 +64,65 @@ $conn->close();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customer Dashboard — Bloom &amp; Basket</title>
+    <title>Account Overview &mdash; Bloom &amp; Basket</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
     <link rel="stylesheet" href="assets/customer.css">
 </head>
-<body class="customer-ui customer-page">
+<body class="customer-ui customer-page customer-account-surface">
 
 <?php $customerActivePage = 'dashboard'; require_once 'includes/customer_nav.php'; ?>
 
-<div id="main-content">
-    <div class="page-topbar d-flex justify-content-between align-items-center gap-3 flex-wrap">
-        <div>
-            <h1>Customer Dashboard</h1>
-            <!-- <div class="form-muted">Manage your profile, addresses, cart, and orders from one place.</div> -->
-        </div>
-        <div class="d-flex gap-2 flex-wrap">
-            <a href="customer_profile.php" class="btn btn-outline-primary btn-sm">Profile</a>
-            <a href="customer_addresses.php" class="btn btn-outline-primary btn-sm">Addresses</a>
-            <a href="customer_orders.php" class="btn btn-primary btn-sm">Order History</a>
-            <a href="customer_logout.php" class="btn btn-outline-secondary btn-sm">Logout</a>
-        </div>
-    </div>
+<main id="main-content" class="customer-account-page">
+    <div class="account-shell">
+        <header class="account-page-header">
+            <div>
+                <p class="account-eyebrow">Customer account</p>
+                <h1>Welcome, <?= htmlspecialchars($customer['first_name']) ?></h1>
+                <p>Review your account details, delivery addresses, and recent orders.</p>
+            </div>
+            <a href="shop.php" class="account-primary-link">Continue shopping</a>
+        </header>
 
-    <div class="page-content">
+        <?php $customerAccountPage = 'dashboard'; require 'includes/customer_account_nav.php'; ?>
 
-        <div class="row g-3 mb-4">
+        <div class="page-content account-content">
+
+        <div class="row g-3 mb-4 account-stats-grid">
             <div class="col-md-3">
-                <div class="customer-stat h-100">
+                <div class="customer-stat account-stat h-100">
                     <div class="label">Saved Addresses</div>
                     <div class="value"><?= $addressCount ?></div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="customer-stat h-100">
+                <div class="customer-stat account-stat h-100">
                     <div class="label">Orders Placed</div>
                     <div class="value"><?= $orderCount ?></div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="customer-stat h-100">
+                <div class="customer-stat account-stat h-100">
                     <div class="label">Open Orders</div>
                     <div class="value"><?= $activeOrderCount ?></div>
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="customer-stat h-100">
+                <div class="customer-stat account-stat h-100">
                     <div class="label">Total Spent</div>
-                    <div class="value">₱<?= number_format($totalSpent, 2) ?></div>
+                    <div class="value">&#8369;<?= number_format($totalSpent, 2) ?></div>
                 </div>
             </div>
         </div>
 
         <div class="row g-4">
             <div class="col-lg-7">
-                <div class="customer-card h-100">
+                <section class="customer-card account-card h-100" aria-labelledby="recent-orders-title">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <span>Recent Orders</span>
-                        <a href="customer_orders.php" class="btn btn-outline-primary btn-sm">View All</a>
+                        <h2 id="recent-orders-title">Recent orders</h2>
+                        <a href="customer_orders.php" class="account-text-link">View all</a>
                     </div>
                     <div class="card-body p-0">
                         <?php if (empty($recentOrders)): ?>
@@ -147,8 +145,8 @@ $conn->close();
                                                 <td>#<?= (int)$order['order_id'] ?><div class="text-muted small"><?= (int)$order['item_count'] ?> item(s)</div></td>
                                                 <td><?= htmlspecialchars(date('M d, Y h:i A', strtotime($order['order_date']))) ?></td>
                                                 <td><span class="order-status-badge <?= htmlspecialchars(orderStatusBadgeClass((string)$order['status'])) ?>"><?= htmlspecialchars($order['status']) ?></span></td>
-                                                <td>₱<?= number_format((float)$order['total_amount'], 2) ?></td>
-                                                <td><a href="customer_order_tracking.php?order_id=<?= (int)$order['order_id'] ?>" class="btn btn-sm btn-outline-primary">Track</a></td>
+                                                <td>&#8369;<?= number_format((float)$order['total_amount'], 2) ?></td>
+                                                <td><a href="customer_order_tracking.php?order_id=<?= (int)$order['order_id'] ?>" class="account-row-action">Track</a></td>
                                             </tr>
                                         <?php endforeach; ?>
                                     </tbody>
@@ -156,23 +154,23 @@ $conn->close();
                             </div>
                         <?php endif; ?>
                     </div>
-                </div>
+                </section>
             </div>
 
             <div class="col-lg-5">
-                <div class="customer-card mb-4">
-                    <div class="card-header">Account Summary</div>
-                    <div class="card-body" style="margin-left: 15px; margin-bottom: 25px;">
-                        <div class="mb-2"><strong>Name:</strong> <?= htmlspecialchars(trim($customer['first_name'] . ' ' . $customer['last_name'])) ?></div>
-                        <div class="mb-2"><strong>Email:</strong> <?= htmlspecialchars($customer['email']) ?></div>
-                        <div><strong>Phone:</strong> <?= htmlspecialchars($customer['phone_number'] ?? 'N/A') ?></div>
+                <section class="customer-card account-card mb-4" aria-labelledby="account-summary-title">
+                    <div class="card-header"><h2 id="account-summary-title">Account summary</h2></div>
+                    <div class="card-body account-detail-list">
+                        <div><span>Name</span><strong><?= htmlspecialchars(trim($customer['first_name'] . ' ' . $customer['last_name'])) ?></strong></div>
+                        <div><span>Email</span><strong><?= htmlspecialchars($customer['email']) ?></strong></div>
+                        <div><span>Phone</span><strong><?= htmlspecialchars($customer['phone_number'] ?: 'Not added') ?></strong></div>
                     </div>
-                </div>
+                </section>
 
-                <div class="customer-card">
+                <section class="customer-card account-card" aria-labelledby="saved-addresses-title">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <span>Saved Delivery Addresses</span>
-                        <a href="customer_addresses.php" class="btn btn-outline-primary btn-sm">Manage</a>
+                        <h2 id="saved-addresses-title">Saved addresses</h2>
+                        <a href="customer_addresses.php" class="account-text-link">Manage</a>
                     </div>
                     <div class="card-body">
                         <?php if (empty($addresses)): ?>
@@ -195,15 +193,16 @@ $conn->close();
                             </div>
                         <?php endif; ?>
                     </div>
-                </div>
+                </section>
             </div>
+        </div>
         </div>
     </div>
 
     <div class="page-footer">
         &copy; <?= date('Y') ?> Bloom &amp; Basket
     </div>
-</div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>

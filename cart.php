@@ -332,10 +332,6 @@ async function updateCartItem(cartItemId, qty, color) {
     var currentQty = qty !== null && qty !== undefined
         ? qty
         : parseInt(row.querySelector('.qty-input').value) || 1;
-    var qtyInput = row.querySelector('.qty-input');
-    var maxQty = parseInt(qtyInput.max) || Number.MAX_SAFE_INTEGER;
-    currentQty = Math.min(maxQty, Math.max(1, currentQty));
-    qtyInput.value = currentQty;
 
     var colorSel = row.querySelector('.cart-color-select');
     var currentColor = (color !== null && color !== undefined)
@@ -374,8 +370,7 @@ async function updateCartItem(cartItemId, qty, color) {
 /* ── Change qty via +/− buttons ──────────────────────────────── */
 function changeQty(cartItemId, delta) {
     var input  = document.getElementById('qty-' + cartItemId);
-    var maxQty = parseInt(input.max) || Number.MAX_SAFE_INTEGER;
-    var newQty = Math.min(maxQty, Math.max(1, (parseInt(input.value) || 1) + delta));
+    var newQty = Math.max(1, (parseInt(input.value) || 1) + delta);
     input.value = newQty;
     updateCartItem(cartItemId, newQty, null);
 }

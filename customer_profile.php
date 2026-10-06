@@ -7,7 +7,6 @@ require_once 'includes/validation.php';
 requireCustomerLogin();
 
 $conn = getConnection();
-ensureCustomerTables($conn);
 
 $customer = fetchCurrentCustomer($conn);
 if (!$customer) {
@@ -19,6 +18,8 @@ if (!$customer) {
 $error = $_SESSION['customer_flash_error'] ?? '';
 $success = $_SESSION['customer_flash_success'] ?? '';
 unset($_SESSION['customer_flash_error'], $_SESSION['customer_flash_success']);
+$csrfToken = customerCsrfToken();
+$customerId = (int)$customer['user_id'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $firstName = trim($_POST['first_name'] ?? '');
@@ -28,7 +29,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $newPassword = (string)($_POST['new_password'] ?? '');
     $confirmPassword = (string)($_POST['confirm_password'] ?? '');
 
-    if ($firstName === '' || $lastName === '' || $email === '') {
+    if (!customerCsrfIsValid($_POST['csrf_token'] ?? null)) {
+        $error = 'Your profile session expired. Please refresh the page and try again.';
+    } elseif ($firstName === '' || $lastName === '' || $email === '') {
         $error = 'First name, last name, and email are required.';
     } elseif (strlen($firstName) > 100 || strlen($lastName) > 100) {
         $error = 'First name and last name must not exceed 100 characters.';
@@ -42,13 +45,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'New passwords do not match.';
     } else {
         $stmt = $conn->prepare('SELECT user_id FROM users WHERE email = ? AND user_id <> ?');
-        $stmt->bind_param('si', $email, $customer['user_id']);
+        $stmt->bind_param('si', $email, $customerId);
         $stmt->execute();
         $emailTaken = $stmt->get_result()->fetch_assoc();
         $stmt->close();
 
         if ($emailTaken) {
-            $error = 'That email address is already in use.';
+            $error = 'That email address cannot be used. Please choose another address.';
         } else {
             if ($newPassword !== '') {
                 $hash = password_hash($newPassword, PASSWORD_DEFAULT);
@@ -57,14 +60,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                      SET first_name = ?, last_name = ?, email = ?, phone_number = ?, password = ?
                      WHERE user_id = ?'
                 );
-                $stmt->bind_param('sssssi', $firstName, $lastName, $email, $phoneNumber, $hash, $customer['user_id']);
+                $stmt->bind_param('sssssi', $firstName, $lastName, $email, $phoneNumber, $hash, $customerId);
             } else {
                 $stmt = $conn->prepare(
                     'UPDATE users
                      SET first_name = ?, last_name = ?, email = ?, phone_number = ?
                      WHERE user_id = ?'
                 );
-                $stmt->bind_param('ssssi', $firstName, $lastName, $email, $phoneNumber, $customer['user_id']);
+                $stmt->bind_param('ssssi', $firstName, $lastName, $email, $phoneNumber, $customerId);
             }
 
             if ($stmt->execute()) {
@@ -77,7 +80,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
-            $error = 'Failed to update profile: ' . $stmt->error;
+            error_log('Customer profile update failed: ' . $stmt->error);
+            $error = 'We could not update your profile right now. Please try again.';
             $stmt->close();
         }
     }
@@ -91,75 +95,90 @@ $conn->close();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customer Profile — Bloom &amp; Basket</title>
+    <title>Profile &mdash; Bloom &amp; Basket</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
     <link rel="stylesheet" href="assets/customer.css">
 </head>
-<body class="customer-ui customer-page">
+<body class="customer-ui customer-page customer-account-surface">
 
 <?php $customerActivePage = 'profile'; require_once 'includes/customer_nav.php'; ?>
 
-<div id="main-content">
-    <div class="page-topbar d-flex justify-content-between align-items-center flex-wrap gap-3">
-        <div>
-            <h1>Customer Profile</h1>
-            <div class="form-muted">Update your personal information and password.</div>
-        </div>
-        <div class="d-flex gap-2 flex-wrap">
-            <a href="customer_dashboard.php" class="btn btn-outline-primary btn-sm">Dashboard</a>
-            <a href="customer_addresses.php" class="btn btn-outline-primary btn-sm">Addresses</a>
-            <a href="customer_logout.php" class="btn btn-outline-secondary btn-sm">Logout</a>
-        </div>
-    </div>
-
-    <div class="page-content">
-        <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
-        <?php if ($success): ?><div class="alert alert-success"><?= htmlspecialchars($success) ?></div><?php endif; ?>
-
-        <div class="customer-card">
-            <div class="card-header">Account Details</div>
-            <div class="card-body p-4" style="margin-top: -25px;">
-                <form method="post" class="row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label" for="first_name">First Name</label>
-                        <input type="text" class="form-control" id="first_name" name="first_name" required maxlength="100" value="<?= htmlspecialchars($_POST['first_name'] ?? $customer['first_name']) ?>">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" for="last_name">Last Name</label>
-                        <input type="text" class="form-control" id="last_name" name="last_name" required maxlength="100" value="<?= htmlspecialchars($_POST['last_name'] ?? $customer['last_name']) ?>">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" for="email">Email Address</label>
-                        <input type="email" class="form-control" id="email" name="email" required maxlength="255" value="<?= htmlspecialchars($_POST['email'] ?? $customer['email']) ?>">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" for="phone_number">Phone Number</label>
-                        <input type="tel" class="form-control" id="phone_number" name="phone_number" inputmode="tel" maxlength="20" pattern="[0-9+()\-\s]{7,20}" title="Use 7 to 20 digits and may include spaces, +, -, or parentheses." value="<?= htmlspecialchars($_POST['phone_number'] ?? ($customer['phone_number'] ?? '')) ?>">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" for="new_password">New Password</label>
-                        <input type="password" class="form-control" id="new_password" name="new_password" placeholder="Leave blank to keep current password" minlength="8" pattern="(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}" title="Use at least 8 characters with letters, numbers, and special characters.">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label" for="confirm_password">Confirm New Password</label>
-                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" minlength="8">
-                    </div>
-                    <div class="col-12 d-flex gap-2 justify-content-end">
-                        <a href="customer_dashboard.php" class="btn btn-outline-secondary">Cancel</a>
-                        <button type="submit" class="btn btn-primary">Save Changes</button>
-                    </div>
-                </form>
+<main id="main-content" class="customer-account-page">
+    <div class="account-shell">
+        <header class="account-page-header">
+            <div>
+                <p class="account-eyebrow">Customer account</p>
+                <h1>Profile</h1>
+                <p>Keep your contact details current and update your password when needed.</p>
             </div>
+        </header>
+
+        <?php $customerAccountPage = 'profile'; require 'includes/customer_account_nav.php'; ?>
+
+        <div class="page-content account-content account-content-narrow">
+            <?php if ($error): ?><div class="alert alert-danger account-alert" role="alert"><?= htmlspecialchars($error) ?></div><?php endif; ?>
+            <?php if ($success): ?><div class="alert alert-success account-alert" role="status"><?= htmlspecialchars($success) ?></div><?php endif; ?>
+
+            <section class="customer-card account-card" aria-labelledby="account-details-title">
+                <div class="card-header">
+                    <div>
+                        <h2 id="account-details-title">Account details</h2>
+                        <p>Required fields are marked in the form.</p>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form method="post" class="account-form">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES) ?>">
+                        <div class="account-form-grid">
+                            <div>
+                                <label class="form-label" for="first_name">First name</label>
+                                <input type="text" class="form-control" id="first_name" name="first_name" required maxlength="100" autocomplete="given-name" value="<?= htmlspecialchars($_POST['first_name'] ?? $customer['first_name'], ENT_QUOTES) ?>">
+                            </div>
+                            <div>
+                                <label class="form-label" for="last_name">Last name</label>
+                                <input type="text" class="form-control" id="last_name" name="last_name" required maxlength="100" autocomplete="family-name" value="<?= htmlspecialchars($_POST['last_name'] ?? $customer['last_name'], ENT_QUOTES) ?>">
+                            </div>
+                            <div>
+                                <label class="form-label" for="email">Email address</label>
+                                <input type="email" class="form-control" id="email" name="email" required maxlength="255" autocomplete="email" value="<?= htmlspecialchars($_POST['email'] ?? $customer['email'], ENT_QUOTES) ?>">
+                            </div>
+                            <div>
+                                <label class="form-label" for="phone_number">Phone number <span>(optional)</span></label>
+                                <input type="tel" class="form-control" id="phone_number" name="phone_number" inputmode="tel" maxlength="20" autocomplete="tel" pattern="[0-9+()\-\s]{7,20}" value="<?= htmlspecialchars($_POST['phone_number'] ?? ($customer['phone_number'] ?? ''), ENT_QUOTES) ?>">
+                            </div>
+                        </div>
+
+                        <div class="account-form-divider">
+                            <h3>Password</h3>
+                            <p>Leave both password fields blank to keep your current password.</p>
+                        </div>
+
+                        <div class="account-form-grid">
+                            <div>
+                                <label class="form-label" for="new_password">New password</label>
+                                <input type="password" class="form-control" id="new_password" name="new_password" minlength="8" autocomplete="new-password" pattern="(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}">
+                            </div>
+                            <div>
+                                <label class="form-label" for="confirm_password">Confirm new password</label>
+                                <input type="password" class="form-control" id="confirm_password" name="confirm_password" minlength="8" autocomplete="new-password">
+                            </div>
+                        </div>
+
+                        <div class="account-form-actions">
+                            <a href="customer_dashboard.php" class="account-secondary-link">Cancel</a>
+                            <button type="submit" class="account-primary-button">Save changes</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
         </div>
     </div>
 
-    <div class="page-footer">
-        &copy; <?= date('Y') ?> Bloom &amp; Basket
-    </div>
-</div>
+    <div class="page-footer">&copy; <?= date('Y') ?> Bloom &amp; Basket</div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>

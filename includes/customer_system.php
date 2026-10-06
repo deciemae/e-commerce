@@ -4,6 +4,25 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
+function customerCsrfToken(): string
+{
+    if (empty($_SESSION['customer_csrf_token']) || !is_string($_SESSION['customer_csrf_token'])) {
+        $_SESSION['customer_csrf_token'] = bin2hex(random_bytes(32));
+    }
+
+    return $_SESSION['customer_csrf_token'];
+}
+
+function customerCsrfIsValid(?string $token): bool
+{
+    $storedToken = $_SESSION['customer_csrf_token'] ?? null;
+
+    return is_string($storedToken)
+        && is_string($token)
+        && $token !== ''
+        && hash_equals($storedToken, $token);
+}
+
 function ensureCustomerTables(mysqli $conn): void
 {
     $conn->query(
@@ -47,6 +66,8 @@ function currentCustomerEmail(): string
 
 function customerLoginUser(array $user): void
 {
+    session_regenerate_id(true);
+
     $_SESSION['customer_user_id'] = (int)$user['user_id'];
     $_SESSION['customer_name'] = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
     $_SESSION['customer_email'] = (string)($user['email'] ?? '');

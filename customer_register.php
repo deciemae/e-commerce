@@ -10,11 +10,11 @@ if (currentCustomerId()) {
 }
 
 $conn = getConnection();
-ensureCustomerTables($conn);
 
 $error = $_SESSION['customer_flash_error'] ?? '';
 $success = $_SESSION['customer_flash_success'] ?? '';
 unset($_SESSION['customer_flash_error'], $_SESSION['customer_flash_success']);
+$csrfToken = customerCsrfToken();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $firstName = trim($_POST['first_name'] ?? '');
@@ -24,7 +24,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = (string)($_POST['password'] ?? '');
     $confirmPassword = (string)($_POST['confirm_password'] ?? '');
 
-    if ($firstName === '' || $lastName === '' || $email === '' || $password === '' || $confirmPassword === '') {
+    if (!customerCsrfIsValid($_POST['csrf_token'] ?? null)) {
+        $error = 'Your registration session expired. Please refresh the page and try again.';
+    } elseif ($firstName === '' || $lastName === '' || $email === '' || $password === '' || $confirmPassword === '') {
         $error = 'First name, last name, email, password, and password confirmation are required.';
     } elseif (strlen($firstName) > 100 || strlen($lastName) > 100) {
         $error = 'First name and last name must not exceed 100 characters.';
@@ -44,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->close();
 
         if ($existing) {
-            $error = 'An account with that email already exists.';
+            $error = 'We could not create an account with those details. Please review them or sign in if you already registered.';
         } else {
             $hash = password_hash($password, PASSWORD_DEFAULT);
             $stmt = $conn->prepare(
@@ -73,7 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
-            $error = 'Registration failed: ' . $stmt->error;
+            error_log('Customer registration failed: ' . $stmt->error);
+            $error = 'We could not create your account right now. Please try again.';
             $stmt->close();
         }
     }
@@ -86,69 +89,81 @@ $conn->close();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customer Registration — Bloom &amp; Basket</title>
+    <title>Create Account &mdash; Bloom &amp; Basket</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/customer.css">
 </head>
-<body class="customer-ui">
-<div class="auth-shell">
-    <div class="auth-layout d-flex justify-content-center w-100">
-        <div class="auth-card" style="max-width: 600px; width: 100%;">
-            <div class="d-flex justify-content-between align-items-start mb-4">
-                <div>
-                    <a href="shop.php" class="brand-mark text-dark mb-3 text-decoration-none d-inline-block" style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16" class="me-1 mb-1">
-                          <path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zm3.5 7.5a.5.5 0 0 1 0 1H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L5.707 7.5H11.5z"/>
-                        </svg>
-                        Bloom &amp; Basket
-                    </a>
-                    <h2 class="h3 fw-bold mb-2">Register</h2>
-                    <p class="form-muted mb-0">Already have an account? <a href="customer_login.php">Log in</a>.</p>
-                </div>
+<body class="customer-ui customer-auth customer-auth-register">
+<main class="auth-shell">
+    <div class="auth-layout">
+        <section class="auth-visual" aria-label="Bloom and Basket storefront">
+            <img src="assets/hero-photo.png" alt="Everyday fashion and lifestyle products" class="auth-visual-image">
+            <div class="auth-visual-overlay"></div>
+            <div class="auth-visual-content">
+                <p class="auth-visual-eyebrow">Bloom &amp; Basket</p>
+                <h2>Make every checkout feel simpler.</h2>
+                <p>Create one account for your cart, saved addresses, and order updates.</p>
             </div>
+        </section>
 
-            <?php if ($error): ?>
-                <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
-            <?php endif; ?>
-            <?php if ($success): ?>
-                <div class="alert alert-success"><?= htmlspecialchars($success) ?></div>
-            <?php endif; ?>
-
-            <form method="post" class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label text-dark fw-medium mb-1" for="first_name">First Name</label>
-                    <input type="text" class="form-control bg-light" id="first_name" name="first_name" required maxlength="100" value="<?= htmlspecialchars($_POST['first_name'] ?? '') ?>">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label text-dark fw-medium mb-1" for="last_name">Last Name</label>
-                    <input type="text" class="form-control bg-light" id="last_name" name="last_name" required maxlength="100" value="<?= htmlspecialchars($_POST['last_name'] ?? '') ?>">
-                </div>
-                <div class="col-12">
-                    <label class="form-label text-dark fw-medium mb-1" for="email">Email Address</label>
-                    <input type="email" class="form-control bg-light" id="email" name="email" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
-                </div>
-                <div class="col-md-12">
-                    <label class="form-label text-dark fw-medium mb-1" for="phone_number">Phone Number</label>
-                    <input type="tel" class="form-control bg-light" id="phone_number" name="phone_number" inputmode="tel" maxlength="20" pattern="[0-9+()\-\s]{7,20}" title="Use 7 to 20 digits and may include spaces, +, -, or parentheses." value="<?= htmlspecialchars($_POST['phone_number'] ?? '') ?>">
-                </div>
-                <div class="col-md-12">
-                    <label class="form-label text-dark fw-medium mb-1" for="password">Password</label>
-                    <input type="password" class="form-control bg-light" id="password" name="password" required minlength="8" pattern="(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}" title="Use at least 8 characters with letters, numbers, and special characters.">
-                </div>
-                 <div class="col-md-12">
-                    <label class="form-label text-dark fw-medium mb-1" for="confirm_password">Confirm Password</label>
-                    <input type="password" class="form-control bg-light" id="confirm_password" name="confirm_password" required minlength="8">
+        <section class="auth-panel" aria-labelledby="register-title">
+            <div class="auth-card auth-card-wide">
+                <div class="auth-brand-row">
+                    <a href="index.php" class="auth-brand">Bloom &amp; Basket</a>
+                    <a href="shop.php" class="auth-back-link">Back to shop</a>
                 </div>
 
+                <p class="auth-kicker">Customer account</p>
+                <h1 id="register-title">Create your account</h1>
+                <p class="auth-intro">Use your details to set up a secure customer account.</p>
 
-                <div class="col-12 d-grid mt-3">
-                    <button type="submit" class="btn btn-primary fw-bold" style="border-radius: 8px;">Create Account</button>
-                </div>
-            </form>
-        </div>
+                <?php if ($error): ?>
+                    <div class="alert alert-danger auth-alert" role="alert"><?= htmlspecialchars($error) ?></div>
+                <?php endif; ?>
+                <?php if ($success): ?>
+                    <div class="alert alert-success auth-alert" role="status"><?= htmlspecialchars($success) ?></div>
+                <?php endif; ?>
+
+                <form method="post" class="auth-form auth-register-form">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES) ?>">
+                    <div class="auth-field-grid">
+                        <div>
+                            <label class="form-label" for="first_name">First name</label>
+                            <input type="text" class="form-control" id="first_name" name="first_name" required maxlength="100" autocomplete="given-name" value="<?= htmlspecialchars($_POST['first_name'] ?? '', ENT_QUOTES) ?>">
+                        </div>
+                        <div>
+                            <label class="form-label" for="last_name">Last name</label>
+                            <input type="text" class="form-control" id="last_name" name="last_name" required maxlength="100" autocomplete="family-name" value="<?= htmlspecialchars($_POST['last_name'] ?? '', ENT_QUOTES) ?>">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label" for="email">Email address</label>
+                        <input type="email" class="form-control" id="email" name="email" required maxlength="255" autocomplete="email" value="<?= htmlspecialchars($_POST['email'] ?? '', ENT_QUOTES) ?>">
+                    </div>
+                    <div>
+                        <label class="form-label" for="phone_number">Phone number <span>(optional)</span></label>
+                        <input type="tel" class="form-control" id="phone_number" name="phone_number" inputmode="tel" maxlength="20" autocomplete="tel" pattern="[0-9+()\-\s]{7,20}" title="Use 7 to 20 digits and may include spaces, +, -, or parentheses." value="<?= htmlspecialchars($_POST['phone_number'] ?? '', ENT_QUOTES) ?>">
+                    </div>
+                    <div class="auth-field-grid">
+                        <div>
+                            <label class="form-label" for="password">Password</label>
+                            <input type="password" class="form-control" id="password" name="password" required minlength="8" autocomplete="new-password" pattern="(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}" aria-describedby="password-hint">
+                        </div>
+                        <div>
+                            <label class="form-label" for="confirm_password">Confirm password</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required minlength="8" autocomplete="new-password">
+                        </div>
+                    </div>
+                    <p class="auth-field-hint" id="password-hint">Use at least 8 characters with letters, numbers, and a special character.</p>
+                    <button type="submit" class="auth-submit">Create account</button>
+                </form>
+
+                <p class="auth-switch">Already registered? <a href="customer_login.php">Sign in</a></p>
+            </div>
+        </section>
     </div>
-</div>
+</main>
 </body>
 </html>

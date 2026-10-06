@@ -6,7 +6,6 @@ require_once 'includes/customer_system.php';
 requireCustomerLogin();
 
 $conn = getConnection();
-ensureCustomerTables($conn);
 
 $customer = fetchCurrentCustomer($conn);
 if (!$customer) {
@@ -48,22 +47,36 @@ if (!$order) {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Order Not Found — Bloom &amp; Basket</title>
+        <title>No Order to Track &mdash; Bloom &amp; Basket</title>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
         <link rel="stylesheet" href="assets/design-system.css">
+        <link rel="stylesheet" href="assets/style.css">
         <link rel="stylesheet" href="assets/customer.css">
     </head>
-    <body class="customer-ui customer-page">
-        <div class="auth-shell">
-            <div class="auth-card text-center" style="max-width:560px; width:100%;">
-                <h1 class="h4 fw-bold mb-2">No order to track yet</h1>
-                <p class="form-muted mb-3">Place an order first, then this page will show the latest tracking status.</p>
-                <div class="d-flex gap-2 justify-content-center flex-wrap">
-                    <a href="shop.php" class="btn btn-primary">Shop Products</a>
-                    <a href="customer_orders.php" class="btn btn-outline-primary">Order History</a>
+    <body class="customer-ui customer-page customer-account-surface">
+        <?php $customerActivePage = 'orders'; require_once 'includes/customer_nav.php'; ?>
+        <main id="main-content" class="customer-account-page">
+            <div class="account-shell">
+                <header class="account-page-header">
+                    <div>
+                        <p class="account-eyebrow">Customer account</p>
+                        <h1>Order tracking</h1>
+                        <p>Follow the progress of your current and previous orders.</p>
+                    </div>
+                </header>
+                <?php $customerAccountPage = 'orders'; require 'includes/customer_account_nav.php'; ?>
+                <div class="page-content account-content">
+                    <section class="account-empty-state">
+                        <h2>No order to track yet</h2>
+                        <p>Place an order first, then its latest status will appear here.</p>
+                        <div class="account-empty-actions">
+                            <a href="shop.php" class="account-primary-link">Shop products</a>
+                            <a href="customer_orders.php" class="account-secondary-link">Order history</a>
+                        </div>
+                    </section>
                 </div>
             </div>
-        </div>
+        </main>
     </body>
     </html>
     <?php
@@ -96,45 +109,47 @@ $conn->close();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Tracking — Bloom &amp; Basket</title>
+    <title>Order Tracking &mdash; Bloom &amp; Basket</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
     <link rel="stylesheet" href="assets/customer.css">
 </head>
-<body class="customer-ui customer-page">
+<body class="customer-ui customer-page customer-account-surface">
 
 <?php $customerActivePage = 'orders'; require_once 'includes/customer_nav.php'; ?>
 
-<div id="main-content">
-    <div class="page-topbar d-flex justify-content-between align-items-center flex-wrap gap-3">
-        <div>
-            <h1>Order Tracking</h1>
-            <div class="form-muted">View the current status of your order and its item list.</div>
-        </div>
-        <div class="d-flex gap-2 flex-wrap">
-            <a href="customer_orders.php" class="btn btn-outline-primary btn-sm">Order History</a>
-            <a href="customer_dashboard.php" class="btn btn-outline-primary btn-sm">Dashboard</a>
-        </div>
-    </div>
+<main id="main-content" class="customer-account-page">
+    <div class="account-shell">
+        <header class="account-page-header">
+            <div>
+                <p class="account-eyebrow">Customer account</p>
+                <h1>Order tracking</h1>
+                <p>Follow the current status and review every item in this order.</p>
+            </div>
+            <a href="customer_orders.php" class="account-secondary-link">Back to orders</a>
+        </header>
 
-    <div class="page-content">
-        <div class="customer-hero mb-4">
+        <?php $customerAccountPage = 'orders'; require 'includes/customer_account_nav.php'; ?>
+
+        <div class="page-content account-content">
+        <section class="customer-hero account-order-hero mb-4" aria-labelledby="tracking-order-title">
             <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
                 <div>
-                    <div class="badge bg-light text-dark mb-3">Order #<?= (int)$order['order_id'] ?></div>
-                    <h2 class="fw-bold mb-2">Current status: <?= htmlspecialchars($order['status']) ?></h2>
-                    <p>Placed on <?= htmlspecialchars(date('M d, Y h:i A', strtotime($order['order_date']))) ?>. Total: ₱<?= number_format((float)$order['total_amount'], 2) ?></p>
+                    <p class="account-order-number">Order #<?= (int)$order['order_id'] ?></p>
+                    <h2 id="tracking-order-title">Current status: <?= htmlspecialchars($order['status']) ?></h2>
+                    <p>Placed on <?= htmlspecialchars(date('M d, Y h:i A', strtotime($order['order_date']))) ?>. Total: &#8369;<?= number_format((float)$order['total_amount'], 2) ?></p>
                 </div>
                 <span class="order-status-badge <?= htmlspecialchars(orderStatusBadgeClass((string)$order['status'])) ?>"><?= htmlspecialchars($order['status']) ?></span>
             </div>
-        </div>
+        </section>
 
         <div class="row g-4">
             <div class="col-lg-7">
-                <div class="tracking-card p-4 mb-4" style="overflow: hidden;">
-                    <div class="page-section-title mb-1">Status Timeline</div>
+                <section class="tracking-card account-card mb-4" aria-labelledby="status-timeline-title">
+                    <div class="card-header"><h2 id="status-timeline-title">Status timeline</h2></div>
+                    <div class="card-body">
                     
                     <?php
                     $totalSteps = count($statusSteps);
@@ -144,7 +159,7 @@ $conn->close();
                     <div class="timeline-h-container mt-3">
                         <div class="timeline-h">
                             <div class="timeline-h-line"></div>
-                            <div class="timeline-h-progress" style="width: <?= $progressPercentage ?>%; <?= $isCancelled ? 'background:#ef4444;' : '' ?>"></div>
+                            <div class="timeline-h-progress <?= $isCancelled ? 'is-cancelled' : '' ?>" style="--timeline-progress: <?= number_format($progressPercentage, 2, '.', '') ?>%;"></div>
                             
                             <?php foreach ($statusSteps as $index => $status): ?>
                                 <?php
@@ -172,12 +187,13 @@ $conn->close();
                             <?php endforeach; ?>
                         </div>
                     </div>
-                </div>
+                    </div>
+                </section>
 
-                <div class="customer-card">
-                    <div class="card-header">Order Items</div>
+                <section class="customer-card account-card" aria-labelledby="tracking-items-title">
+                    <div class="card-header"><h2 id="tracking-items-title">Order items</h2></div>
                     <div class="table-responsive">
-                        <table class="table mb-0 align-middle">
+                        <table class="table mb-0 align-middle account-tracking-items">
                             <thead>
                                 <tr>
                                     <th>Product</th>
@@ -189,47 +205,55 @@ $conn->close();
                             <tbody>
                                 <?php foreach ($orderItems as $item): ?>
                                     <tr>
-                                        <td>
-                                            <div class="fw-semibold"><?= htmlspecialchars($item['product_name']) ?></div>
+                                        <td data-label="Product">
+                                            <div class="account-tracking-product">
+                                                <?php if (!empty($item['image_url'])): ?>
+                                                    <img src="<?= htmlspecialchars($item['image_url'], ENT_QUOTES) ?>" alt="<?= htmlspecialchars($item['product_name'], ENT_QUOTES) ?>" class="account-order-image">
+                                                <?php else: ?>
+                                                    <span class="account-order-image account-order-image-placeholder" aria-hidden="true"></span>
+                                                <?php endif; ?>
+                                                <strong><?= htmlspecialchars($item['product_name']) ?></strong>
+                                            </div>
                                         </td>
-                                        <td><?= (int)$item['quantity'] ?></td>
-                                        <td>₱<?= number_format((float)$item['unit_price'], 2) ?></td>
-                                        <td>₱<?= number_format((float)$item['subtotal'], 2) ?></td>
+                                        <td data-label="Quantity"><span class="account-cell-value"><?= (int)$item['quantity'] ?></span></td>
+                                        <td data-label="Unit price"><span class="account-cell-value">&#8369;<?= number_format((float)$item['unit_price'], 2) ?></span></td>
+                                        <td data-label="Subtotal"><span class="account-cell-value">&#8369;<?= number_format((float)$item['subtotal'], 2) ?></span></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
-                </div>
+                </section>
             </div>
 
             <div class="col-lg-5">
-                <div class="customer-card mb-4">
-                    <div class="card-header">Delivery Details</div>
-                    <div class="card-body" style="padding: 1.25rem; margin-top:-15px;">
-                        <div class="mb-2"><strong>Customer:</strong> <?= htmlspecialchars(trim($order['first_name'] . ' ' . $order['last_name'])) ?></div>
-                        <div class="mb-2"><strong>Email:</strong> <?= htmlspecialchars($order['email']) ?></div>
-                        <div><strong>Address:</strong><br><?= nl2br(htmlspecialchars($order['shipping_address'] ?? '')) ?></div>
+                <section class="customer-card account-card mb-4" aria-labelledby="delivery-details-title">
+                    <div class="card-header"><h2 id="delivery-details-title">Delivery details</h2></div>
+                    <div class="card-body account-detail-list">
+                        <div><span>Customer</span><strong><?= htmlspecialchars(trim($order['first_name'] . ' ' . $order['last_name'])) ?></strong></div>
+                        <div><span>Email</span><strong><?= htmlspecialchars($order['email']) ?></strong></div>
+                        <div class="account-detail-block"><span>Address</span><strong><?= nl2br(htmlspecialchars($order['shipping_address'] ?? '')) ?></strong></div>
                     </div>
-                </div>
+                </section>
 
-                <div class="customer-card">
-                    <div class="card-header">Order Summary</div>
-                    <div class="card-body" style="padding: 1.25rem; margin-top:-15px;">
-                        <div class="d-flex justify-content-between mb-2"><span>Order ID</span><strong>#<?= (int)$order['order_id'] ?></strong></div>
-                        <div class="d-flex justify-content-between mb-2"><span>Status</span><strong><?= htmlspecialchars($order['status']) ?></strong></div>
-                        <div class="d-flex justify-content-between mb-2"><span>Total</span><strong>₱<?= number_format((float)$order['total_amount'], 2) ?></strong></div>
-                        <div class="d-flex justify-content-between"><span>Date</span><strong><?= htmlspecialchars(date('M d, Y', strtotime($order['order_date']))) ?></strong></div>
+                <section class="customer-card account-card" aria-labelledby="tracking-summary-title">
+                    <div class="card-header"><h2 id="tracking-summary-title">Order summary</h2></div>
+                    <div class="card-body account-detail-list">
+                        <div><span>Order ID</span><strong>#<?= (int)$order['order_id'] ?></strong></div>
+                        <div><span>Status</span><strong><?= htmlspecialchars($order['status']) ?></strong></div>
+                        <div><span>Total</span><strong>&#8369;<?= number_format((float)$order['total_amount'], 2) ?></strong></div>
+                        <div><span>Date</span><strong><?= htmlspecialchars(date('M d, Y', strtotime($order['order_date']))) ?></strong></div>
                     </div>
-                </div>
+                </section>
             </div>
+        </div>
         </div>
     </div>
 
     <div class="page-footer">
         &copy; <?= date('Y') ?> Bloom &amp; Basket
     </div>
-</div>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
