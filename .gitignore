@@ -1,2 +1,13 @@
 # Codex browser preview profile and cache
 .codex-preview-cart/
+.codex-*-preview/
+
+# Local secrets and environment overrides
+.env
+.env.*
+!.env.example
+
+# Runtime and operator-generated artifacts
+*.log
+*.local.sql
+backups/*.sql

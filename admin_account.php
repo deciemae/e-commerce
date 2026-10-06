@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+startApplicationSession();
 require_once 'config/db.php';
 require_once 'admin_auth.php';
 requireAdminLogin();
@@ -30,13 +31,35 @@ if ($adminEmail) {
     $adminId = $admin['admin_id'] ?? null;
 }
 
+$passwordPolicy = [
+    'password_min_length' => 8,
+    'password_require_special' => 1,
+    'password_require_number' => 1,
+    'password_require_uppercase' => 1,
+];
+$policyResult = $conn->query('SELECT setting_name, setting_value FROM admin_security_settings');
+if ($policyResult) {
+    while ($policyRow = $policyResult->fetch_assoc()) {
+        if (array_key_exists($policyRow['setting_name'], $passwordPolicy)) {
+            $passwordPolicy[$policyRow['setting_name']] = (int)$policyRow['setting_value'];
+        }
+    }
+}
+$passwordPolicy['password_min_length'] = min(72, max(8, (int)$passwordPolicy['password_min_length']));
+
 // Keep whatever the admin typed on a failed submit so the form doesn't clear
 $fullNameInput = $admin['full_name'] ?? '';
 $emailInput = $admin['email'] ?? '';
 
 // ---- Handle form submissions ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $adminId) {
+    adminRequireValidCsrf('admin_account.php');
     $formType = $_POST['form_type'] ?? '';
+
+    if (!in_array($formType, ['profile', 'remove_photo', 'password'], true)) {
+        adminSetFlash('error', 'Invalid account action.');
+        adminRedirect('admin_account.php');
+    }
 
     // ---- Profile info + photo upload ----
     if ($formType === 'profile') {
@@ -68,11 +91,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $adminId) {
                 $profileErrors['profile_photo'] = 'The photo failed to upload. Please try again.';
             } else {
                 $allowedTypes = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
-                $tmpPath = $_FILES['profile_photo']['tmp_name'];
-                $mimeType = mime_content_type($tmpPath);
+                $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+                $tmpPath = (string)($_FILES['profile_photo']['tmp_name'] ?? '');
+                $finfo = new finfo(FILEINFO_MIME_TYPE);
+                $mimeType = $tmpPath !== '' && is_uploaded_file($tmpPath) ? $finfo->file($tmpPath) : false;
+                $originalExtension = strtolower(pathinfo((string)($_FILES['profile_photo']['name'] ?? ''), PATHINFO_EXTENSION));
                 $maxBytes = 2 * 1024 * 1024; // 2MB
 
-                if (!isset($allowedTypes[$mimeType])) {
+                if (!$mimeType || !isset($allowedTypes[$mimeType]) || !in_array($originalExtension, $allowedExtensions, true)) {
                     $profileErrors['profile_photo'] = 'Profile photo must be a JPG, PNG, or WEBP image.';
                 } elseif ($_FILES['profile_photo']['size'] > $maxBytes) {
                     $profileErrors['profile_photo'] = 'Profile photo must be 2MB or smaller.';
@@ -82,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $adminId) {
                     if (!is_dir($uploadDir)) {
                         mkdir($uploadDir, 0755, true);
                     }
-                    $fileName = 'admin_' . $adminId . '_' . time() . '.' . $ext;
+                    $fileName = 'admin_' . bin2hex(random_bytes(16)) . '.' . $ext;
                     if (move_uploaded_file($tmpPath, $uploadDir . $fileName)) {
                         $newPhotoPath = 'assets/uploads/admins/' . $fileName;
                     } else {
@@ -94,20 +120,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $adminId) {
 
         if (empty($profileErrors)) {
             if ($newPhotoPath) {
-                // Clean up the old photo file so uploads don't pile up
-                if (!empty($admin['photo_path']) && file_exists(__DIR__ . '/' . $admin['photo_path'])) {
-                    @unlink(__DIR__ . '/' . $admin['photo_path']);
-                }
                 $stmt = $conn->prepare('UPDATE admins SET full_name = ?, email = ?, photo_path = ? WHERE admin_id = ?');
                 $stmt->bind_param('sssi', $fullNameInput, $emailInput, $newPhotoPath, $adminId);
             } else {
                 $stmt = $conn->prepare('UPDATE admins SET full_name = ?, email = ? WHERE admin_id = ?');
                 $stmt->bind_param('ssi', $fullNameInput, $emailInput, $adminId);
             }
-            $stmt->execute();
+            $saved = $stmt->execute();
             $stmt->close();
 
-            $profileSuccess = 'Your profile has been updated.';
+            if (!$saved) {
+                adminRemoveStoredUpload($newPhotoPath, __DIR__ . '/assets/uploads/admins');
+                $profileErrors['email'] = 'The profile could not be updated. The email may already be in use.';
+            } else {
+                if ($newPhotoPath) {
+                    adminRemoveStoredUpload($admin['photo_path'] ?? null, __DIR__ . '/assets/uploads/admins');
+                }
 
             $admin['full_name'] = $fullNameInput;
             $admin['email'] = $emailInput;
@@ -116,22 +144,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $adminId) {
             }
 
             // Login is tracked by email, so keep the session in sync if it changed
-            $_SESSION['admin_email'] = strtolower(trim($emailInput));
+                $_SESSION['admin_email'] = strtolower(trim($emailInput));
+                logAdminActivity('Update Profile', 'Updated administrator profile details.');
+                $conn->close();
+                adminSetFlash('success', 'Your profile has been updated.');
+                adminRedirect('admin_account.php');
+            }
         }
     }
 
     // ---- Remove photo ----
     if ($formType === 'remove_photo') {
-        if (!empty($admin['photo_path']) && file_exists(__DIR__ . '/' . $admin['photo_path'])) {
-            @unlink(__DIR__ . '/' . $admin['photo_path']);
-        }
+        adminRemoveStoredUpload($admin['photo_path'] ?? null, __DIR__ . '/assets/uploads/admins');
         $stmt = $conn->prepare('UPDATE admins SET photo_path = NULL WHERE admin_id = ?');
         $stmt->bind_param('i', $adminId);
         $stmt->execute();
         $stmt->close();
 
-        $admin['photo_path'] = null;
-        $profileSuccess = 'Your profile photo has been removed.';
+        logAdminActivity('Remove Profile Photo', 'Removed administrator profile photo.');
+        $conn->close();
+        adminSetFlash('success', 'Your profile photo has been removed.');
+        adminRedirect('admin_account.php');
     }
 
     // ---- Change password ----
@@ -148,10 +181,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $adminId) {
 
         if ($newPassword === '') {
             $passwordErrors['new_password'] = 'New password is required.';
-        } elseif (strlen($newPassword) < 8 || strlen($newPassword) > 72) {
-            $passwordErrors['new_password'] = 'New password must be between 8 and 72 characters.';
-        } elseif (!preg_match('/^(?=.*[A-Za-z])(?=.*\d).+$/', $newPassword)) {
-            $passwordErrors['new_password'] = 'New password must include at least one letter and one number.';
+        } elseif (strlen($newPassword) < $passwordPolicy['password_min_length'] || strlen($newPassword) > 72) {
+            $passwordErrors['new_password'] = 'New password must be between ' . $passwordPolicy['password_min_length'] . ' and 72 characters.';
+        } elseif (password_verify($newPassword, $admin['password'] ?? '')) {
+            $passwordErrors['new_password'] = 'New password must be different from your current password.';
+        } elseif ($passwordPolicy['password_require_number'] && !preg_match('/\d/', $newPassword)) {
+            $passwordErrors['new_password'] = 'New password must include at least one number.';
+        } elseif ($passwordPolicy['password_require_uppercase'] && !preg_match('/[A-Z]/', $newPassword)) {
+            $passwordErrors['new_password'] = 'New password must include at least one uppercase letter.';
+        } elseif ($passwordPolicy['password_require_special'] && !preg_match('/[^A-Za-z0-9]/', $newPassword)) {
+            $passwordErrors['new_password'] = 'New password must include at least one special character.';
         }
 
         if ($confirmPassword === '') {
@@ -167,7 +206,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $adminId) {
             $stmt->execute();
             $stmt->close();
 
-            $passwordSuccess = 'Your password has been changed.';
+            session_regenerate_id(true);
+            logAdminActivity('Change Password', 'Changed administrator password.');
+            $conn->close();
+            adminSetFlash('success', 'Your password has been changed.');
+            adminRedirect('admin_account.php');
         }
     }
 }
@@ -190,167 +233,7 @@ $lastLoginDisplay = $lastLogin ? date('M d, Y g:i A', strtotime($lastLogin)) : '
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
-    <style>
-        :root {
-            --ink: #2a2621;
-            --muted: #8a8175;
-            --line: rgba(42, 38, 33, 0.09);
-            --paper: #fbf9f6;
-            --rose: #c2477a;
-            --rose-soft: rgba(194, 71, 122, 0.12);
-        }
-
-        #main-content { color: var(--ink); }
-        .page-topbar h1 { color: var(--ink); margin-bottom: 4px; }
-
-        .account-wrap { max-width: 1040px; }
-
-        .account-card {
-            background: #fff;
-            border-radius: 14px;
-            padding: 24px 26px;
-            box-shadow: 0 1px 2px rgba(42, 38, 33, 0.04);
-            border: 1px solid var(--line);
-        }
-
-        .account-card + .account-card {
-            margin-top: 24px;
-        }
-
-        .account-card-header {
-            margin-bottom: 16px;
-            padding-bottom: 16px;
-            border-bottom: 1px solid var(--line);
-        }
-
-        .account-card-header h2 {
-            font-size: 1.05rem;
-            font-weight: 700;
-            color: var(--ink);
-            margin: 0 0 4px;
-        }
-
-        .account-card-header .section-hint {
-            font-size: 0.85rem;
-            color: var(--muted);
-            margin: 0;
-        }
-
-        /* ---- Profile photo card ---- */
-        .avatar-row {
-            display: flex;
-            align-items: center;
-            gap: 18px;
-            flex-wrap: wrap;
-        }
-
-        .avatar-preview {
-            width: 84px;
-            height: 84px;
-            border-radius: 50%;
-            object-fit: cover;
-            background: var(--rose-soft);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--rose);
-            border: 1px solid var(--line);
-            flex-shrink: 0;
-        }
-
-        .avatar-name {
-            font-weight: 700;
-            color: var(--ink);
-            margin-bottom: 2px;
-        }
-
-        .avatar-status {
-            font-size: 0.85rem;
-            color: var(--muted);
-            margin-bottom: 10px;
-        }
-
-        .avatar-actions {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .avatar-actions form { margin: 0; }
-
-        .form-hint {
-            font-size: 0.8rem;
-            color: var(--muted);
-            margin-top: 12px;
-        }
-
-        /* ---- Account details rows ---- */
-        .meta-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            padding: 12px 0;
-            border-bottom: 1px solid var(--line);
-            font-size: 0.9rem;
-        }
-
-        .meta-row:last-child { border-bottom: none; }
-
-        .meta-row .meta-label {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: var(--muted);
-        }
-
-        .meta-row .meta-label svg { flex-shrink: 0; color: var(--muted); }
-        .meta-row .meta-value { font-weight: 600; color: var(--ink); text-align: right; }
-
-        .role-badge {
-            display: inline-block;
-            padding: 2px 10px;
-            border-radius: 999px;
-            background: var(--rose-soft);
-            color: var(--rose);
-            font-size: 0.78rem;
-            font-weight: 600;
-        }
-
-        /* ---- Password requirements panel ---- */
-        .password-requirements {
-            display: flex;
-            gap: 12px;
-            background: var(--paper);
-            border: 1px solid var(--line);
-            border-radius: 10px;
-            padding: 14px 16px;
-            margin-top: 18px;
-        }
-
-        .password-requirements svg {
-            color: var(--rose);
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
-
-        .password-requirements h3 {
-            font-size: 0.88rem;
-            font-weight: 700;
-            color: var(--ink);
-            margin: 0 0 6px;
-        }
-
-        .password-requirements ul {
-            margin: 0;
-            padding-left: 18px;
-            font-size: 0.82rem;
-            color: var(--muted);
-        }
-
-        .password-requirements li { margin-bottom: 2px; }
-    </style>
+    <link rel="stylesheet" href="assets/admin.css">
 </head>
 <body class="admin-ui">
 
@@ -361,107 +244,68 @@ $lastLoginDisplay = $lastLogin ? date('M d, Y g:i A', strtotime($lastLogin)) : '
 
     <div class="page-content">
         <div class="account-wrap">
-            <div class="row g-4">
+            <div class="account-grid">
 
-                <!-- ==== LEFT COLUMN ==== -->
-                <div class="col-lg-6">
+                <!-- ==== MAIN COLUMN: Profile Identity & Details ==== -->
+                <div class="account-col-main">
 
-                    <!-- ---- Profile photo ---- -->
+                    <!-- Profile Information Card (Photo + Name + Email) -->
                     <div class="account-card">
                         <div class="account-card-header">
-                            <h2>Profile photo</h2>
-                            <p class="section-hint">Your avatar will reflect in the top navigation bar.</p>
+                            <h2>Profile Information</h2>
+                            <p class="section-hint">Update your profile picture, display name, and contact email.</p>
                         </div>
 
                         <?php if ($profileSuccess): ?>
-                            <div class="alert alert-success"><?= htmlspecialchars($profileSuccess) ?></div>
+                            <div class="alert alert-success d-flex align-items-center gap-2 mb-4" role="alert">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+                                <span><?= htmlspecialchars($profileSuccess) ?></span>
+                            </div>
                         <?php endif; ?>
 
-                        <div class="avatar-row">
+                        <!-- Avatar Photo Section -->
+                        <div class="avatar-row mb-4 pb-4 border-bottom">
                             <?php if ($photoPath): ?>
                                 <img id="avatarPreview" src="<?= htmlspecialchars($photoPath) ?>" alt="Profile photo" class="avatar-preview">
                             <?php else: ?>
                                 <div id="avatarPreview" class="avatar-preview">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zM4.5 20.25a7.5 7.5 0 0 1 15 0"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zM4.5 20.25a7.5 7.5 0 0 1 15 0"/></svg>
                                 </div>
                             <?php endif; ?>
 
-                            <div>
-                                <div class="avatar-name"><?= htmlspecialchars($displayName ?: 'Admin') ?></div>
+                            <div class="avatar-info">
+                                <div class="avatar-name"><?= htmlspecialchars($displayName ?: 'Administrator') ?></div>
                                 <div class="avatar-status">
-                                    <?= $photoPath ? 'Custom photo is active.' : 'No photo set — using default avatar.' ?>
+                                    <?= $photoPath ? 'Custom photo is active and shown in the top navigation.' : 'No photo uploaded yet &mdash; using default avatar.' ?>
                                 </div>
 
                                 <div class="avatar-actions">
                                     <form method="post" enctype="multipart/form-data" class="needs-validation" id="profileForm" novalidate>
+                                        <?= adminCsrfInput() ?>
                                         <input type="hidden" name="form_type" value="profile">
                                         <input type="hidden" name="full_name" value="<?= htmlspecialchars($fullNameInput) ?>">
                                         <input type="hidden" name="email" value="<?= htmlspecialchars($emailInput) ?>">
-                                        <label for="profilePhotoInput" class="btn btn-outline-secondary btn-sm">Upload new photo</label>
+                                        <label for="profilePhotoInput" class="btn btn-outline-secondary btn-sm">Upload Photo</label>
                                         <input type="file" id="profilePhotoInput" name="profile_photo" accept="image/png, image/jpeg, image/webp" hidden>
                                     </form>
 
                                     <?php if ($photoPath): ?>
                                         <form method="post" onsubmit="return confirm('Remove your profile photo?');">
+                                            <?= adminCsrfInput() ?>
                                             <input type="hidden" name="form_type" value="remove_photo">
                                             <button type="submit" class="btn btn-outline-danger btn-sm">Remove</button>
                                         </form>
                                     <?php endif; ?>
                                 </div>
 
-                                <div class="invalid-feedback d-block" id="photoError"><?= htmlspecialchars($profileErrors['profile_photo'] ?? '') ?></div>
+                                <div class="invalid-feedback d-block mt-2" id="photoError"><?= htmlspecialchars($profileErrors['profile_photo'] ?? '') ?></div>
+                                <div class="form-hint">Supports JPG, PNG, or WEBP up to 2MB.</div>
                             </div>
                         </div>
 
-                        <div class="form-hint">Supports JPEG, PNG, or WEBP. Maximum size 2MB.</div>
-                    </div>
-
-                    <!-- ---- Account details ---- -->
-                    <div class="account-card">
-                        <div class="account-card-header">
-                            <h2>Account details</h2>
-                            <p class="section-hint">Your registered administrator profile and system role.</p>
-                        </div>
-
-                        <div class="meta-row">
-                            <span class="meta-label">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zM4.5 20.25a7.5 7.5 0 0 1 15 0"/></svg>
-                                Full name
-                            </span>
-                            <span class="meta-value"><?= htmlspecialchars($displayName ?: '—') ?></span>
-                        </div>
-                        <div class="meta-row">
-                            <span class="meta-label">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6.75A2.25 2.25 0 0 1 5.25 4.5h13.5A2.25 2.25 0 0 1 21 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 17.25zM3.5 7l8.5 6 8.5-6"/></svg>
-                                Email address
-                            </span>
-                            <span class="meta-value"><?= htmlspecialchars($displayEmail ?: '—') ?></span>
-                        </div>
-                        <div class="meta-row">
-                            <span class="meta-label">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg>
-                                System role
-                            </span>
-                            <span class="meta-value"><span class="role-badge"><?= htmlspecialchars($displayRole) ?></span></span>
-                        </div>
-                        <div class="meta-row">
-                            <span class="meta-label">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l2.5 2.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
-                                Last login
-                            </span>
-                            <span class="meta-value"><?= htmlspecialchars($lastLoginDisplay) ?></span>
-                        </div>
-                    </div>
-
-                    <!-- Editable name/email lives in the form below so the photo card's
-                         hidden inputs above always submit the current values -->
-                    <div class="account-card">
-                        <div class="account-card-header">
-                            <h2>Edit profile</h2>
-                            <p class="section-hint">Update your name or email address.</p>
-                        </div>
-
+                        <!-- Name & Email Form -->
                         <form method="post" class="needs-validation" novalidate>
+                            <?= adminCsrfInput() ?>
                             <input type="hidden" name="form_type" value="profile">
 
                             <div class="mb-3">
@@ -482,7 +326,7 @@ $lastLoginDisplay = $lastLogin ? date('M d, Y g:i A', strtotime($lastLogin)) : '
                                 </div>
                             </div>
 
-                            <div class="mb-3">
+                            <div class="mb-4">
                                 <label for="email" class="form-label">Email Address</label>
                                 <input
                                     type="email"
@@ -495,29 +339,73 @@ $lastLoginDisplay = $lastLogin ? date('M d, Y g:i A', strtotime($lastLogin)) : '
                                 <div class="invalid-feedback">
                                     <?= htmlspecialchars($profileErrors['email'] ?? 'Please enter a valid email address.') ?>
                                 </div>
+                                <div class="form-hint">Your email is used to log in and receive administrative alerts.</div>
                             </div>
 
-                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                            <button type="submit" class="btn btn-primary">Save Profile Changes</button>
                         </form>
                     </div>
 
                 </div>
 
-                <!-- ==== RIGHT COLUMN ==== -->
-                <div class="col-lg-6">
+                <!-- ==== SIDE COLUMN: Account Status & Password Security ==== -->
+                <div class="account-col-side">
 
-                    <!-- ---- Change password ---- -->
+                    <!-- Account Overview Details -->
                     <div class="account-card">
                         <div class="account-card-header">
-                            <h2>Change password</h2>
-                            <p class="section-hint">Update the password used to sign in.</p>
+                            <h2>Account Overview</h2>
+                            <p class="section-hint">System credentials and access role.</p>
+                        </div>
+
+                        <div class="meta-list">
+                            <div class="meta-row">
+                                <span class="meta-label">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zM4.5 20.25a7.5 7.5 0 0 1 15 0"/></svg>
+                                    Display Name
+                                </span>
+                                <span class="meta-value"><?= htmlspecialchars($displayName ?: '—') ?></span>
+                            </div>
+                            <div class="meta-row">
+                                <span class="meta-label">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6.75A2.25 2.25 0 0 1 5.25 4.5h13.5A2.25 2.25 0 0 1 21 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 17.25zM3.5 7l8.5 6 8.5-6"/></svg>
+                                    Email
+                                </span>
+                                <span class="meta-value"><?= htmlspecialchars($displayEmail ?: '—') ?></span>
+                            </div>
+                            <div class="meta-row">
+                                <span class="meta-label">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/></svg>
+                                    Role
+                                </span>
+                                <span class="meta-value"><span class="role-badge"><?= htmlspecialchars($displayRole) ?></span></span>
+                            </div>
+                            <div class="meta-row">
+                                <span class="meta-label">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l2.5 2.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+                                    Last Login
+                                </span>
+                                <span class="meta-value"><?= htmlspecialchars($lastLoginDisplay) ?></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Change Password -->
+                    <div class="account-card">
+                        <div class="account-card-header">
+                            <h2>Change Password</h2>
+                            <p class="section-hint">Update your account security password.</p>
                         </div>
 
                         <?php if ($passwordSuccess): ?>
-                            <div class="alert alert-success"><?= htmlspecialchars($passwordSuccess) ?></div>
+                            <div class="alert alert-success d-flex align-items-center gap-2 mb-4" role="alert">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+                                <span><?= htmlspecialchars($passwordSuccess) ?></span>
+                            </div>
                         <?php endif; ?>
 
                         <form method="post" class="needs-validation" id="passwordForm" novalidate>
+                            <?= adminCsrfInput() ?>
                             <input type="hidden" name="form_type" value="password">
 
                             <div class="mb-3">
@@ -534,39 +422,36 @@ $lastLoginDisplay = $lastLogin ? date('M d, Y g:i A', strtotime($lastLogin)) : '
                                 </div>
                             </div>
 
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label for="newPassword" class="form-label">New password</label>
-                                    <input
-                                        type="password"
-                                        class="form-control <?= isset($passwordErrors['new_password']) ? 'is-invalid' : '' ?>"
-                                        id="newPassword"
-                                        name="new_password"
-                                        placeholder="At least 8 characters"
-                                        required
-                                        minlength="8"
-                                        maxlength="72"
-                                        pattern="(?=.*[A-Za-z])(?=.*\d).{8,}"
-                                        title="At least 8 characters, including at least one letter and one number.">
-                                    <div class="invalid-feedback">
-                                        <?= htmlspecialchars($passwordErrors['new_password'] ?? 'Password must be at least 8 characters and include a letter and a number.') ?>
-                                    </div>
+                            <div class="mb-3">
+                                <label for="newPassword" class="form-label">New password</label>
+                                <input
+                                    type="password"
+                                    class="form-control <?= isset($passwordErrors['new_password']) ? 'is-invalid' : '' ?>"
+                                    id="newPassword"
+                                    name="new_password"
+                                    placeholder="At least <?= (int)$passwordPolicy['password_min_length'] ?> characters"
+                                    required
+                                    minlength="<?= (int)$passwordPolicy['password_min_length'] ?>"
+                                    maxlength="72"
+                                    title="Follow the password requirements shown below.">
+                                <div class="invalid-feedback">
+                                    <?= htmlspecialchars($passwordErrors['new_password'] ?? 'Password must follow policy requirements.') ?>
                                 </div>
+                            </div>
 
-                                <div class="col-md-6">
-                                    <label for="confirmPassword" class="form-label">Confirm new password</label>
-                                    <input
-                                        type="password"
-                                        class="form-control <?= isset($passwordErrors['confirm_password']) ? 'is-invalid' : '' ?>"
-                                        id="confirmPassword"
-                                        name="confirm_password"
-                                        placeholder="Re-enter new password"
-                                        required
-                                        minlength="8"
-                                        maxlength="72">
-                                    <div class="invalid-feedback" id="confirmPasswordFeedback">
-                                        <?= htmlspecialchars($passwordErrors['confirm_password'] ?? 'Passwords do not match.') ?>
-                                    </div>
+                            <div class="mb-3">
+                                <label for="confirmPassword" class="form-label">Confirm new password</label>
+                                <input
+                                    type="password"
+                                    class="form-control <?= isset($passwordErrors['confirm_password']) ? 'is-invalid' : '' ?>"
+                                    id="confirmPassword"
+                                    name="confirm_password"
+                                    placeholder="Re-enter new password"
+                                    required
+                                    minlength="8"
+                                    maxlength="72">
+                                <div class="invalid-feedback" id="confirmPasswordFeedback">
+                                    <?= htmlspecialchars($passwordErrors['confirm_password'] ?? 'Passwords do not match.') ?>
                                 </div>
                             </div>
 
@@ -575,14 +460,16 @@ $lastLoginDisplay = $lastLogin ? date('M d, Y g:i A', strtotime($lastLogin)) : '
                                 <div>
                                     <h3>Password requirements</h3>
                                     <ul>
-                                        <li>At least 8 characters long</li>
-                                        <li>Includes at least one letter and one number</li>
+                                        <li>At least <?= (int)$passwordPolicy['password_min_length'] ?> characters long</li>
+                                        <?php if ($passwordPolicy['password_require_number']): ?><li>Includes at least one number</li><?php endif; ?>
+                                        <?php if ($passwordPolicy['password_require_uppercase']): ?><li>Includes at least one uppercase letter</li><?php endif; ?>
+                                        <?php if ($passwordPolicy['password_require_special']): ?><li>Includes at least one special character</li><?php endif; ?>
                                         <li>Different from your current password</li>
                                     </ul>
                                 </div>
                             </div>
 
-                            <button type="submit" class="btn btn-primary mt-4">Update Password</button>
+                            <button type="submit" class="btn btn-primary mt-4 w-100">Update Password</button>
                         </form>
                     </div>
 

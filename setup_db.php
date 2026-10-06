@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/includes/setup_guard.php';
+requireCommandLineSetupApproval();
 require_once 'config/db.php';
 $conn = getConnection();
 

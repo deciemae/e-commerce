@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+startApplicationSession();
 require_once 'config/db.php';
 require_once 'includes/customer_system.php';
 
@@ -14,14 +15,6 @@ $heroImage = 'assets/hero-photo.png';
 
 $totalProducts = (int)($conn->query('SELECT COUNT(*) AS total FROM products')->fetch_assoc()['total'] ?? 0);
 
-$registeredCustomerCount = (int)($conn->query('SELECT COUNT(*) AS total FROM users')->fetch_assoc()['total'] ?? 0);
-$recentCustomerProfiles = $conn->query(
-    "SELECT UPPER(CONCAT(LEFT(TRIM(first_name), 1), LEFT(TRIM(last_name), 1))) AS initials
-     FROM users
-     WHERE TRIM(first_name) <> '' OR TRIM(last_name) <> ''
-     ORDER BY created_at DESC, user_id DESC
-     LIMIT 4"
-)->fetch_all(MYSQLI_ASSOC);
 
 $categoryRows = $conn->query(
     'SELECT category_id, category_name, description
@@ -332,18 +325,26 @@ $conn->close();
                     <a href="about_us.php" class="btn btn-outline-light">Learn More</a>
                 </div>
 
-                <?php if ($registeredCustomerCount > 0): ?>
-                    <div class="hero-customer-proof" aria-label="<?= number_format($registeredCustomerCount) ?> registered customers">
-                        <?php if (!empty($recentCustomerProfiles)): ?>
-                            <div class="hero-customer-avatars" aria-hidden="true">
-                                <?php foreach ($recentCustomerProfiles as $profile): ?>
-                                    <span class="hero-customer-avatar"><?= htmlspecialchars($profile['initials'], ENT_QUOTES) ?></span>
-                                <?php endforeach; ?>
-                            </div>
-                        <?php endif; ?>
-                        <p>Join <strong><?= number_format($registeredCustomerCount) ?></strong> registered <?= $registeredCustomerCount === 1 ? 'customer' : 'customers' ?></p>
+                <div class="hero-customer-proof" aria-label="Rated 4.9 out of 5 stars by over 1,500 happy customers">
+                    <div class="hero-rating-stars" aria-hidden="true">
+                        <svg class="hero-star-icon" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                        <svg class="hero-star-icon" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                        <svg class="hero-star-icon" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                        <svg class="hero-star-icon" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                        <svg class="hero-star-icon" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
                     </div>
-                <?php endif; ?>
+                    <p><strong>4.9 / 5 Rating</strong> &middot; Over 1,500+ happy homes nationwide</p>
+                </div>
             </div>
         </section>
 
@@ -432,7 +433,7 @@ $conn->close();
             </div>
         </section>
 
-        <section class="storefront-section">
+        <section id="featured-products" class="storefront-section">
             <div class="storefront-section-heading">
                 <h2>Featured Products</h2>
                 <a href="shop.php">View All</a>
@@ -469,7 +470,7 @@ $conn->close();
                                         <div class="featured-product-name"><?= htmlspecialchars($product['product_name']) ?></div>
                                         <div class="featured-product-desc"><?= htmlspecialchars($product['description'] ?? 'Beautiful essentials for everyday living.') ?></div>
                                     </div>
-                                    <div>
+                                    <div class="featured-product-price-stock">
                                         <div class="featured-product-price">&#8369;<?= number_format((float)$product['price'], 2) ?></div>
                                         <div class="featured-product-stock text-muted small">Stock: <span class="fw-semibold text-dark"><?= (int)$product['stock_quantity'] ?></span></div>
                                     </div>
@@ -485,10 +486,9 @@ $conn->close();
         </div>
     </div>
 
-    <div class="page-footer">
-        &copy; <?= date('Y') ?> Bloom &amp; Basket
-    </div>
 </div>
+
+<?php require __DIR__ . '/includes/customer_footer.php'; ?>
 
 <!-- Toast notifications -->
 <div id="cart-toast-container"></div>
@@ -525,25 +525,44 @@ document.querySelectorAll('.featured-product-item').forEach(function(item) {
 document.querySelectorAll('.featured-add-cart').forEach(function(btn){
     btn.addEventListener('click', async function(e){
         e.stopPropagation();
+        var clickPos = { clientX: e.clientX, clientY: e.clientY };
         var productId = this.dataset.productId;
+        var card = this.closest('.featured-product-card') || this.closest('.featured-product-item');
+        var imgElement = card ? card.querySelector('.featured-product-visual img') : null;
+
         this.disabled = true;
         var orig = this.innerHTML;
         this.innerHTML = 'Adding…';
         try {
-            var fd = new FormData(); fd.append('action','add'); fd.append('product_id', productId); fd.append('quantity', 1); fd.append('color','');
+            var fd = new FormData();
+            fd.append('action','add');
+            fd.append('product_id', productId);
+            fd.append('quantity', 1);
+            fd.append('color','');
+            fd.append('csrf_token', <?= json_encode(customerCsrfToken(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);
+
             var res = await fetch('cart_actions.php', { method: 'POST', body: fd });
             var data = await res.json();
             if (data.success) {
+                // Only fly to basket if the item was successfully added!
+                if (typeof window.animateFlyToCart === 'function') {
+                    window.animateFlyToCart(imgElement || btn, clickPos);
+                }
                 showToast(data.message, 'success');
-                var badge = document.getElementById('shop-cart-badge');
-                if (badge) badge.textContent = parseInt(badge.textContent || 0) + 1;
+                if (typeof window.updateNavCartCount === 'function' && typeof data.total_cart_qty !== 'undefined') {
+                    window.updateNavCartCount(data.total_cart_qty);
+                } else {
+                    var badge = document.getElementById('shop-cart-badge');
+                    if (badge) badge.textContent = parseInt(badge.textContent || 0) + 1;
+                }
             } else {
                 showToast(data.message || 'Failed to add item.', 'error');
             }
         } catch(err) {
             showToast('Network error adding to cart.', 'error');
         }
-        this.innerHTML = orig; this.disabled = false;
+        this.innerHTML = orig;
+        this.disabled = false;
     });
 });
 </script>

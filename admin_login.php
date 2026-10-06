@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/admin_auth.php';
+require_once __DIR__ . '/includes/admin_toast.php';
 
 if (adminIsLoggedIn()) {
     header('Location: admin_dashboard.php');
@@ -9,12 +10,19 @@ if (adminIsLoggedIn()) {
 
 $error = $_SESSION['admin_login_error'] ?? '';
 unset($_SESSION['admin_login_error']);
+$loginNotice = $_SESSION['admin_login_notice'] ?? '';
+unset($_SESSION['admin_login_notice']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!adminCsrfIsValid($_POST['csrf_token'] ?? null)) {
+        $error = 'Your session expired. Please try again.';
+    }
     $email = trim((string)($_POST['email'] ?? ''));
     $password = (string)($_POST['password'] ?? '');
 
-    if ($email === '' || $password === '') {
+    if ($error !== '') {
+        // Keep the CSRF error without attempting authentication.
+    } elseif ($email === '' || $password === '') {
         $error = 'Email and password are required.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Please enter a valid email address.';
@@ -31,6 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($row['setting_name'] === 'lockout_duration') $duration = (int)$row['setting_value'];
             }
         }
+        $threshold = min(20, max(1, $threshold));
+        $duration = min(1440, max(1, $duration));
 
         $stmt = $conn->prepare('SELECT email, password, failed_attempts, is_locked, locked_until FROM admins WHERE email = ? LIMIT 1');
         $stmt->bind_param('s', $email);
@@ -104,59 +114,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
-    <style>
-        body {
-            min-height: 100vh;
-            display: grid;
-            place-items: center;
-            background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
-        }
-
-        .admin-login-card {
-            width: min(100%, 440px);
-            background: #fff;
-            border-radius: 18px;
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
-            padding: 2rem;
-        }
-
-        .admin-login-brand {
-            text-align: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .admin-login-brand h1 {
-            font-size: 1.4rem;
-            font-weight: 800;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: #1e293b;
-            margin: 0;
-        }
-
-        .admin-login-brand small {
-            display: block;
-            margin-top: .4rem;
-            color: #64748b;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-        }
-
-        .admin-credentials {
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: .75rem .9rem;
-            margin-top: 1rem;
-            font-size: .82rem;
-            color: #475569;
-        }
-    </style>
+    <link rel="stylesheet" href="assets/admin.css">
 </head>
-<body>
+<body class="admin-login-page">
+    <?php if ($loginNotice !== '') renderAdminToast(['type' => 'success', 'message' => $loginNotice]); ?>
     <div class="admin-login-card">
         <div class="admin-login-brand">
+            <span class="admin-login-logo" aria-hidden="true">
+                <img src="assets/logo.png" alt="" width="140" height="40">
+            </span>
             <h1>Bloom &amp; Basket</h1>
             <small>Admin Access</small>
         </div>
@@ -166,9 +132,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php endif; ?>
 
         <form method="POST" action="admin_login.php">
+            <?= adminCsrfInput() ?>
             <div class="mb-3">
                 <label for="email" class="form-label">Email Address</label>
-                <input type="email" id="email" name="email" class="form-control" value="<?= htmlspecialchars($_POST['email'] ?? 'admin@bloomandbasket.com') ?>" required maxlength="255" autocomplete="username">
+                <input type="email" id="email" name="email" class="form-control" value="<?= htmlspecialchars($_POST['email'] ?? '') ?>" required maxlength="255" autocomplete="username">
             </div>
 
             <div class="mb-3">

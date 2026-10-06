@@ -1,30 +1,27 @@
 <?php
 require_once 'config/db.php';
-session_start();
+require_once __DIR__ . '/includes/session.php';
+startApplicationSession();
 require_once 'admin_auth.php';
 requireAdminLogin();
 
-$success = '';
-$error   = '';
-
-// Read one-time flash messages written by a previous POST redirect
-if (!empty($_SESSION['flash_success'])) {
-    $success = $_SESSION['flash_success'];
-    unset($_SESSION['flash_success']);
-}
-if (!empty($_SESSION['flash_error'])) {
-    $error = $_SESSION['flash_error'];
-    unset($_SESSION['flash_error']);
-}
-
 // ── Handle Add / Edit / Delete Category ──────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    adminRequireValidCsrf('categories.php');
     $action = $_POST['action'] ?? 'add';
     $conn = getConnection();
+
+    if (!in_array($action, ['add', 'update', 'delete'], true)) {
+        $conn->close();
+        adminSetFlash('error', 'Invalid category action.');
+        adminRedirect('categories.php');
+    }
     
     if ($action === 'delete') {
         $categoryId = (int)($_POST['category_id'] ?? 0);
-        if ($categoryId > 0) {
+        if ($categoryId <= 0) {
+            adminSetFlash('error', 'Invalid category selected.');
+        } else {
             $checkStmt = $conn->prepare('SELECT COUNT(*) as cnt FROM products WHERE category_id = ?');
             $checkStmt->bind_param('i', $categoryId);
             $checkStmt->execute();
@@ -32,15 +29,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $checkStmt->close();
             
             if ($count > 0) {
-                $_SESSION['flash_error'] = "Cannot delete category because it has $count product(s) associated with it.";
+                adminSetFlash('error', "Cannot delete category because it has $count product(s) associated with it.");
             } else {
                 $stmt = $conn->prepare('DELETE FROM categories WHERE category_id = ?');
                 $stmt->bind_param('i', $categoryId);
                 if ($stmt->execute()) {
                     logAdminActivity('Delete Category', "Deleted category ID: {$categoryId}");
-                    $_SESSION['flash_success'] = 'Category deleted successfully.';
+                    adminSetFlash('success', 'Category deleted successfully.');
                 } else {
-                    $_SESSION['flash_error'] = 'Failed to delete category: ' . $stmt->error;
+                    adminSetFlash('error', 'The category could not be deleted.');
                 }
                 $stmt->close();
             }
@@ -50,17 +47,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $desc = trim($_POST['description']   ?? '');
         
         if ($name === '') {
-            $_SESSION['flash_error'] = 'Category name is required.';
+            adminSetFlash('error', 'Category name is required.');
+        } elseif (mb_strlen($name) > 100 || mb_strlen($desc) > 255) {
+            adminSetFlash('error', 'Category names are limited to 100 characters and descriptions to 255 characters.');
         } else {
             if ($action === 'update') {
                 $categoryId = (int)($_POST['category_id'] ?? 0);
+                if ($categoryId <= 0) {
+                    $conn->close();
+                    adminSetFlash('error', 'Invalid category selected.');
+                    adminRedirect('categories.php');
+                }
                 $stmt = $conn->prepare('UPDATE categories SET category_name = ?, description = ? WHERE category_id = ?');
                 $stmt->bind_param('ssi', $name, $desc, $categoryId);
                 if ($stmt->execute()) {
                     logAdminActivity('Update Category', "Updated category ID: {$categoryId}");
-                    $_SESSION['flash_success'] = 'Category "' . htmlspecialchars($name) . '" updated successfully.';
+                    adminSetFlash('success', 'Category "' . $name . '" updated successfully.');
                 } else {
-                    $_SESSION['flash_error'] = 'Failed to update category: ' . $stmt->error;
+                    adminSetFlash('error', 'The category could not be updated.');
                 }
                 $stmt->close();
             } else {
@@ -68,17 +72,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->bind_param('ss', $name, $desc);
                 if ($stmt->execute()) {
                     logAdminActivity('Add Category', "Added category: {$name}");
-                    $_SESSION['flash_success'] = 'Category "' . htmlspecialchars($name) . '" added successfully.';
+                    adminSetFlash('success', 'Category "' . $name . '" added successfully.');
                 } else {
-                    $_SESSION['flash_error'] = 'Failed to add category: ' . $stmt->error;
+                    adminSetFlash('error', 'The category could not be added.');
                 }
                 $stmt->close();
             }
         }
     }
     $conn->close();
-    header('Location: categories.php');
-    exit;
+    adminRedirect('categories.php');
 }
 
 $editCategory = null;
@@ -110,6 +113,7 @@ $conn->close();
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/admin.css">
 </head>
 <body class="admin-ui">
 
@@ -120,45 +124,33 @@ $conn->close();
 
     <div class="page-content">
 
-        <?php if ($success): ?>
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <?= htmlspecialchars($success) ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-        <?php if ($error): ?>
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <?= htmlspecialchars($error) ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-
         <!-- Add/Edit Category -->
-        <div class="card mb-4">
+        <div class="card mb-4 category-editor-card">
             <div class="card-header-custom"><?= $editCategory ? 'Edit Category' : 'Add New Category' ?></div>
             <div class="card-body p-4">
-                <form method="POST" action="categories.php">
+                <form method="POST" action="categories.php" class="category-editor-form">
+                    <?= adminCsrfInput() ?>
                     <input type="hidden" name="action" value="<?= $editCategory ? 'update' : 'add' ?>">
                     <?php if ($editCategory): ?>
                         <input type="hidden" name="category_id" value="<?= (int)$editCategory['category_id'] ?>">
                     <?php endif; ?>
-                    <div class="row g-3 align-items-end">
-                        <div class="col-md-4">
+                    <div class="category-editor-grid">
+                        <div class="category-editor-field">
                             <label for="category_name" class="form-label">Category Name <span class="text-danger">*</span></label>
                             <input type="text" id="category_name" name="category_name"
                                    class="form-control" placeholder="e.g. Electronics"
                                    maxlength="100" required value="<?= htmlspecialchars($editCategory['category_name'] ?? '') ?>">
                         </div>
-                        <div class="col-md-4">
+                        <div class="category-editor-field">
                             <label for="description" class="form-label">Description</label>
                             <input type="text" id="description" name="description"
                                    class="form-control" placeholder="Optional description"
                                    maxlength="255" value="<?= htmlspecialchars($editCategory['description'] ?? '') ?>">
                         </div>
-                        <div class="col-md-4 d-flex gap-2">
-                            <button type="submit" class="btn btn-primary flex-grow-1 text-nowrap"><?= $editCategory ? 'Update Category' : 'Add Category' ?></button>
+                        <div class="d-flex gap-2 category-editor-actions">
+                            <button type="submit" class="btn btn-primary text-nowrap"><?= $editCategory ? 'Update Category' : 'Add Category' ?></button>
                             <?php if ($editCategory): ?>
-                                <a href="categories.php" class="btn btn-outline-secondary flex-grow-1 d-flex align-items-center justify-content-center">Cancel</a>
+                                <a href="categories.php" class="btn btn-outline-secondary d-flex align-items-center justify-content-center">Cancel</a>
                             <?php endif; ?>
                         </div>
                     </div>
@@ -175,9 +167,10 @@ $conn->close();
                 <?php else: ?>
                     <div class="table-responsive">
                         <table class="table table-hover mb-0">
+                            <caption class="visually-hidden">Product categories and management actions</caption>
                             <thead>
                                 <tr>
-                                    <th style="width:60px">#</th>
+                                    <th class="table-col-id">#</th>
                                     <th>Category Name</th>
                                     <th>Description</th>
                                     <th>Created At</th>
@@ -225,6 +218,7 @@ $conn->close();
 <div class="modal fade" id="deleteCategoryModal" tabindex="-1" aria-labelledby="deleteCategoryModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <form method="POST" action="categories.php" class="modal-content">
+            <?= adminCsrfInput() ?>
             <input type="hidden" name="action" value="delete">
             <input type="hidden" name="category_id" id="delete_category_id" value="">
             <div class="modal-header border-0 pb-0">

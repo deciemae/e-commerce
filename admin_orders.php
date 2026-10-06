@@ -1,37 +1,33 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+startApplicationSession();
 require_once 'config/db.php';
 require_once 'admin_auth.php';
 requireAdminLogin();
 require_once 'includes/customer_system.php';
 
 $conn = getConnection();
-ensureCustomerTables($conn);
-
-$error = $_SESSION['admin_order_flash_error'] ?? '';
-$success = $_SESSION['admin_order_flash_success'] ?? '';
-unset($_SESSION['admin_order_flash_error'], $_SESSION['admin_order_flash_success']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    adminRequireValidCsrf('admin_orders.php');
     $orderId = (int)($_POST['order_id'] ?? 0);
     $status = trim($_POST['status'] ?? '');
 
     if ($orderId <= 0 || !in_array($status, orderStatusOptions(), true)) {
-        $_SESSION['admin_order_flash_error'] = 'Invalid order status update.';
+        adminSetFlash('error', 'Invalid order status update.');
     } else {
         $stmt = $conn->prepare('UPDATE orders SET status = ? WHERE order_id = ?');
         $stmt->bind_param('si', $status, $orderId);
         if ($stmt->execute()) {
             logAdminActivity('Update Order Status', "Updated order ID: {$orderId} to status: {$status}");
-            $_SESSION['admin_order_flash_success'] = 'Order status updated successfully.';
+            adminSetFlash('success', 'Order status updated successfully.');
         } else {
-            $_SESSION['admin_order_flash_error'] = 'Failed to update order status.';
+            adminSetFlash('error', 'Failed to update order status.');
         }
         $stmt->close();
     }
 
-    header('Location: admin_orders.php');
-    exit;
+    adminRedirect('admin_orders.php');
 }
 
 $filter = trim($_GET['status'] ?? '');
@@ -53,11 +49,11 @@ if ($filter !== '' && in_array($filter, orderStatusOptions(), true)) {
 $sql .= ' GROUP BY o.order_id, o.order_date, o.total_amount, o.status, o.shipping_address, u.first_name, u.last_name, u.email
           ORDER BY o.order_date DESC';
 
-if ($filter !== '' && in_array($filter, orderStatusOptions(), true)) {
-    $sql = str_replace('WHERE o.status = ?', 'WHERE o.status = "' . $conn->real_escape_string($filter) . '"', $sql);
-}
-
 $stmt = $conn->prepare($sql);
+$validFilter = $filter !== '' && in_array($filter, orderStatusOptions(), true);
+if ($validFilter) {
+    $stmt->bind_param('s', $filter);
+}
 $stmt->execute();
 $orders = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
@@ -73,6 +69,7 @@ $conn->close();
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/admin.css">
 </head>
 <body class="admin-ui">
 
@@ -81,14 +78,11 @@ $conn->close();
 <div id="main-content">
     <?php
     $pageTitle = 'Order Management';
-    $topbarActions = '<a href="index.php" class="btn btn-outline-primary btn-sm">Dashboard</a>';
+    $topbarActions = '<a href="admin_dashboard.php" class="btn btn-outline-primary btn-sm">Dashboard</a>';
     require_once 'includes/admin_topbar.php';
     ?>
 
     <div class="page-content">
-        <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
-        <?php if ($success): ?><div class="alert alert-success"><?= htmlspecialchars($success) ?></div><?php endif; ?>
-
         <div class="customer-card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <span>Orders</span>
@@ -108,6 +102,7 @@ $conn->close();
                 <?php else: ?>
                     <div class="table-responsive">
                         <table class="table mb-0 align-middle">
+                            <caption class="visually-hidden">Customer orders and fulfillment status</caption>
                             <thead>
                                 <tr>
                                     <th>Order</th>
@@ -135,8 +130,9 @@ $conn->close();
                                             <div class="d-flex gap-2 flex-wrap">
                                                 <a href="admin_order_details.php?order_id=<?= (int)$order['order_id'] ?>" class="btn btn-outline-primary btn-sm">Details</a>
                                                 <form method="post" class="d-flex gap-1 align-items-center">
+                                                    <?= adminCsrfInput() ?>
                                                     <input type="hidden" name="order_id" value="<?= (int)$order['order_id'] ?>">
-                                                    <select name="status" class="form-select form-select-sm" style="min-width:140px">
+                                                    <select name="status" class="form-select form-select-sm status-select" aria-label="Status for order <?= (int)$order['order_id'] ?>">
                                                         <?php foreach (orderStatusOptions() as $status): ?>
                                                             <option value="<?= htmlspecialchars($status) ?>" <?= $status === $order['status'] ? 'selected' : '' ?>><?= htmlspecialchars($status) ?></option>
                                                         <?php endforeach; ?>

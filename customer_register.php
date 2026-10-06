@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+startApplicationSession();
 require_once 'config/db.php';
 require_once 'includes/customer_system.php';
 require_once 'includes/validation.php';
@@ -56,22 +57,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bind_param('sssss', $firstName, $lastName, $email, $hash, $phoneNumber);
 
             if ($stmt->execute()) {
-                $newUserId = $stmt->insert_id;
-                
-                // Automatically log the new user in
-                $newUser = [
-                    'user_id' => $newUserId,
-                    'first_name' => $firstName,
-                    'last_name' => $lastName,
-                    'email' => $email
-                ];
-                customerLoginUser($newUser);
-                attachSessionCartToCustomer($conn, (int)$newUserId);
-
-                $_SESSION['customer_flash_success'] = 'Account created successfully! You are now logged in.';
+                $_SESSION['customer_flash_success'] = 'Account created successfully. Please sign in using the email and password you registered.';
+                $_SESSION['customer_login_email'] = $email;
                 $stmt->close();
                 $conn->close();
-                header('Location: index.php');
+                header('Location: customer_login.php');
                 exit;
             }
 

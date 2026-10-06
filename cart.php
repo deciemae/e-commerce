@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+startApplicationSession();
 require_once 'config/db.php';
 require_once 'includes/customer_system.php';
 require_once 'includes/product_colors.php';
@@ -238,10 +239,9 @@ function renderCartIcon(string $class = ''): string {
         </div><!-- /row -->
     </div><!-- /page-content -->
 
-    <div class="page-footer">
-        &copy; <?= date('Y') ?> Bloom &amp; Basket
-    </div>
 </main><!-- /main-content -->
+
+<?php require __DIR__ . '/includes/customer_footer.php'; ?>
 
 <!-- Toast container -->
 <div id="cart-toast-container" aria-live="polite" aria-atomic="true"></div>
@@ -296,6 +296,15 @@ function recalcTotals() {
     var tb = document.getElementById('topbar-qty');
     if (tb) tb.textContent = totalQty;
 
+    // Synchronize overall cart quantity with header nav
+    var allItemsQty = 0;
+    cartRows.forEach(function(row) {
+        allItemsQty += (parseInt(row.querySelector('.qty-input').value) || 0);
+    });
+    if (typeof window.updateNavCartCount === 'function') {
+        window.updateNavCartCount(allItemsQty);
+    }
+
     var masterCb = document.getElementById('select-all-cb');
     if (masterCb) {
         masterCb.checked = cartRows.length > 0 && rowCount === cartRows.length;
@@ -349,6 +358,7 @@ async function updateCartItem(cartItemId, qty, color) {
         fd.append('cart_item_id', cartItemId);
         fd.append('quantity',     currentQty);
         fd.append('color',        currentColor);
+        fd.append('csrf_token', <?= json_encode(customerCsrfToken(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);
 
         var res  = await fetch('cart_actions.php', { method: 'POST', body: fd });
         var data = await res.json();
@@ -381,6 +391,7 @@ async function removeCartItem(cartItemId) {
         var fd = new FormData();
         fd.append('action',       'remove');
         fd.append('cart_item_id', cartItemId);
+        fd.append('csrf_token', <?= json_encode(customerCsrfToken(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);
 
         var res  = await fetch('cart_actions.php', { method: 'POST', body: fd });
         var data = await res.json();
@@ -432,6 +443,7 @@ async function clearCart() {
     try {
         var fd = new FormData();
         fd.append('action', 'clear');
+        fd.append('csrf_token', <?= json_encode(customerCsrfToken(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);
 
         var res  = await fetch('cart_actions.php', { method: 'POST', body: fd });
         var data = await res.json();

@@ -1,36 +1,33 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+startApplicationSession();
 require_once 'config/db.php';
 require_once 'admin_auth.php';
 requireAdminLogin();
 require_once 'includes/customer_system.php';
 
 $conn = getConnection();
-ensureCustomerTables($conn);
-
-$error = $_SESSION['admin_order_detail_flash_error'] ?? '';
-$success = $_SESSION['admin_order_detail_flash_success'] ?? '';
-unset($_SESSION['admin_order_detail_flash_error'], $_SESSION['admin_order_detail_flash_success']);
 
 $orderId = (int)($_GET['order_id'] ?? ($_POST['order_id'] ?? 0));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    adminRequireValidCsrf('admin_order_details.php?order_id=' . max(0, $orderId));
     $status = trim($_POST['status'] ?? '');
     if ($orderId <= 0 || !in_array($status, orderStatusOptions(), true)) {
-        $_SESSION['admin_order_detail_flash_error'] = 'Invalid order status update.';
+        adminSetFlash('error', 'Invalid order status update.');
     } else {
         $stmt = $conn->prepare('UPDATE orders SET status = ? WHERE order_id = ?');
         $stmt->bind_param('si', $status, $orderId);
         if ($stmt->execute()) {
-            $_SESSION['admin_order_detail_flash_success'] = 'Order status updated successfully.';
+            logAdminActivity('Update Order Status', "Updated order ID: {$orderId} to status: {$status}");
+            adminSetFlash('success', 'Order status updated successfully.');
         } else {
-            $_SESSION['admin_order_detail_flash_error'] = 'Failed to update order status.';
+            adminSetFlash('error', 'Failed to update order status.');
         }
         $stmt->close();
     }
 
-    header('Location: admin_order_details.php?order_id=' . $orderId);
-    exit;
+    adminRedirect('admin_order_details.php?order_id=' . $orderId);
 }
 
 $stmt = $conn->prepare(
@@ -76,72 +73,8 @@ $conn->close();
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/admin.css">
 </head>
-<style>
-        .customer-card {
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-
-        width: 100%;
-        background: #ffffff !important;
-
-        border: none !important;
-        border-radius: 24px !important;
-
-        box-shadow: 0 8px 25px rgba(20, 35, 60, 0.06) !important;
-
-        overflow: hidden !important;
-        margin-bottom: 24px !important;
-    }
-
-    /* Card header */
-    .customer-card .card-header {
-        display: block !important;
-        visibility: visible !important;
-
-        background: #ffffff !important;
-        background-image: none !important;
-
-        color: #101b2d !important;
-
-        border: none !important;
-        border-bottom: 1px solid #e3e7ed !important;
-
-        padding: 20px 20px 12px !important;
-
-        font-size: 1.2rem !important;
-        font-weight: 700 !important;
-    }
-
-    /* Card body */
-    .customer-card .card-body {
-        display: block !important;
-        visibility: visible !important;
-
-        background: #ffffff !important;
-        color: #152238 !important;
-
-        padding: 24px 28px 28px !important;
-    }
-
-    /* Text inside card */
-    .customer-card .card-body strong {
-        color: #101b2d !important;
-        font-weight: 700;
-    }
-
-    .customer-card .card-body > div {
-        color: #152238;
-        font-size: 1.05rem;
-        line-height: 1.5;
-    }
-
-    /* Status badge */
-    .customer-card .order-status-badge {
-        display: inline-block;
-    }
-</style>
 <body class="admin-ui">
 
 <?php $activePage = 'admin-orders'; require_once 'includes/sidebar.php'; ?>
@@ -154,17 +87,15 @@ $conn->close();
     ?>
 
     <div class="page-content">
-        <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
-        <?php if ($success): ?><div class="alert alert-success"><?= htmlspecialchars($success) ?></div><?php endif; ?>
-
         <div class="row g-4">
             <div class="col-lg-7">
                 <div class="customer-card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <span>Order #<?= (int)$order['order_id'] ?></span>
                         <form method="post" class="d-flex gap-2 align-items-center flex-wrap">
+                            <?= adminCsrfInput() ?>
                             <input type="hidden" name="order_id" value="<?= (int)$order['order_id'] ?>">
-                            <select name="status" class="form-select form-select-sm" style="min-width:160px">
+                            <select name="status" class="form-select form-select-sm status-select" aria-label="Order status">
                                 <?php foreach (orderStatusOptions() as $status): ?>
                                     <option value="<?= htmlspecialchars($status) ?>" <?= $status === $order['status'] ? 'selected' : '' ?>><?= htmlspecialchars($status) ?></option>
                                 <?php endforeach; ?>
@@ -174,6 +105,7 @@ $conn->close();
                     </div>
                     <div class="table-responsive">
                         <table class="table mb-0 align-middle">
+                            <caption class="visually-hidden">Products included in this order</caption>
                             <thead>
                                 <tr>
                                     <th>Product</th>

@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+startApplicationSession();
 require_once 'config/db.php';
 require_once 'includes/customer_system.php';
 require_once 'includes/product_colors.php';
@@ -113,7 +114,7 @@ function renderCartIcon(string $class = ''): string {
     <link rel="stylesheet" href="assets/customer.css">
     <link rel="stylesheet" href="assets/cart.css">
 </head>
-<body class="customer-ui customer-page">
+<body class="customer-ui customer-page catalog-page">
 
 <?php $customerActivePage = 'shop'; require_once 'includes/customer_nav.php'; ?>
 
@@ -209,18 +210,16 @@ function renderCartIcon(string $class = ''): string {
                                     <p class="catalog-product-description">
                                         <?= htmlspecialchars($p['description'] ?? 'No description provided.') ?>
                                     </p>
-                                    <div class="catalog-price">&#8369;<?= number_format((float)$p['price'], 2) ?></div>
-                                    <div class="catalog-stock mb-2">
-                                        <?php if ($isOutOfStock): ?>
-                                            <span class="text-danger fw-bold">Out of Stock</span>
-                                        <?php else: ?>
-                                            Stock: <span class="fw-semibold text-dark"><?= (int)$p['stock_quantity'] ?></span>
-                                        <?php endif; ?>
+                                    <div class="catalog-price-stock">
+                                        <div class="catalog-price">&#8369;<?= number_format((float)$p['price'], 2) ?></div>
+                                        <div class="catalog-stock">
+                                            <?php if ($isOutOfStock): ?>
+                                                <span class="text-danger fw-bold">Out of Stock</span>
+                                            <?php else: ?>
+                                                Stock: <span class="fw-semibold text-dark"><?= (int)$p['stock_quantity'] ?></span>
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
-
-                                    <a href="product_details.php?product_id=<?= (int)$p['product_id'] ?>" class="btn btn-outline-primary btn-sm w-100 mb-2">
-                                        View Details
-                                    </a>
 
                                     <?php if (!empty($colors) && !$isOutOfStock): ?>
                                     <div class="color-picker-wrap">
@@ -247,7 +246,7 @@ function renderCartIcon(string $class = ''): string {
                                                    aria-label="Quantity for <?= htmlspecialchars($p['product_name'], ENT_QUOTES) ?>">
                                             <button class="btn-add-cart flex-grow-1"
                                                     id="add-btn-<?= $p['product_id'] ?>"
-                                                    onclick="addToCart(<?= $p['product_id'] ?>, this)">
+                                                    onclick="addToCart(<?= $p['product_id'] ?>, this, event)">
                                                 <span class="btn-icon"><?= renderCartIcon('cart-icon') ?></span>
                                                 <span>Add to Cart</span>
                                             </button>
@@ -265,10 +264,9 @@ function renderCartIcon(string $class = ''): string {
 
     </div>
 
-    <div class="page-footer">
-        &copy; <?= date('Y') ?> Bloom &amp; Basket
-    </div>
 </div>
+
+<?php require __DIR__ . '/includes/customer_footer.php'; ?>
 
 <!-- Toast notifications -->
 <div id="cart-toast-container"></div>
@@ -312,11 +310,27 @@ function showToast(message, type) {
     }, 3000);
 }
 
-async function addToCart(productId, btn) {
+async function addToCart(productId, btn, event) {
     var card  = btn.closest('.product-catalog-card');
+    var colorSwatches = card ? card.querySelector('.color-swatches') : null;
+    var hasColorOptions = colorSwatches && colorSwatches.querySelectorAll('.color-swatch').length > 0;
     var color = getSelectedColor(card);
+
+    if (hasColorOptions && !color) {
+        showToast('Please select a valid product color.', 'error');
+        // Shake color swatches to prompt user
+        if (colorSwatches) {
+            colorSwatches.classList.remove('swatch-shake');
+            void colorSwatches.offsetWidth;
+            colorSwatches.classList.add('swatch-shake');
+            setTimeout(function() { colorSwatches.classList.remove('swatch-shake'); }, 600);
+        }
+        return;
+    }
+
     var qtyInput = document.getElementById('add-qty-' + productId);
     var qty   = qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
+    var clickPos = (event && typeof event.clientX === 'number') ? { clientX: event.clientX, clientY: event.clientY } : null;
 
     btn.disabled    = true;
     var origHTML    = btn.innerHTML;
@@ -328,18 +342,29 @@ async function addToCart(productId, btn) {
         fd.append('product_id', productId);
         fd.append('quantity',   qty);
         fd.append('color',      color);
+        fd.append('csrf_token', <?= json_encode(customerCsrfToken(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);
 
         var res  = await fetch('cart_actions.php', { method: 'POST', body: fd });
         var data = await res.json();
 
         if (data.success) {
+            // Only fly to basket if the item was successfully added!
+            var imgEl = card ? card.querySelector('.product-img-wrap img') : null;
+            if (typeof window.animateFlyToCart === 'function') {
+                window.animateFlyToCart(imgEl || btn, clickPos);
+            }
+
             showToast(data.message, 'success');
             btn.textContent = '✓ Added!';
             
-            // Update cart badge in header
-            var badge = document.getElementById('shop-cart-badge');
-            if (badge) {
-                badge.textContent = parseInt(badge.textContent || 0) + qty;
+            // Update cart badges in real time
+            if (typeof window.updateNavCartCount === 'function' && typeof data.total_cart_qty !== 'undefined') {
+                window.updateNavCartCount(data.total_cart_qty);
+            } else {
+                var badge = document.getElementById('shop-cart-badge');
+                if (badge) {
+                    badge.textContent = parseInt(badge.textContent || 0) + qty;
+                }
             }
 
             setTimeout(function() {

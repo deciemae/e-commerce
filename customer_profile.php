@@ -1,8 +1,10 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+startApplicationSession();
 require_once 'config/db.php';
 require_once 'includes/customer_system.php';
 require_once 'includes/validation.php';
+require_once 'includes/customer_toast.php';
 
 requireCustomerLogin();
 
@@ -120,7 +122,6 @@ $conn->close();
 
         <div class="page-content account-content account-content-narrow">
             <?php if ($error): ?><div class="alert alert-danger account-alert" role="alert"><?= htmlspecialchars($error) ?></div><?php endif; ?>
-            <?php if ($success): ?><div class="alert alert-success account-alert" role="status"><?= htmlspecialchars($success) ?></div><?php endif; ?>
 
             <section class="customer-card account-card" aria-labelledby="account-details-title">
                 <div class="card-header">
@@ -177,9 +178,11 @@ $conn->close();
         </div>
     </div>
 
-    <div class="page-footer">&copy; <?= date('Y') ?> Bloom &amp; Basket</div>
 </main>
 
+<?php require __DIR__ . '/includes/customer_footer.php'; ?>
+
+<?php renderCustomerSuccessToast($success); ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

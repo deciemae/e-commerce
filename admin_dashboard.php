@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+startApplicationSession();
 require_once 'config/db.php';
 require_once 'admin_auth.php';
 requireAdminLogin();
@@ -82,202 +83,8 @@ $conn->close();
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/admin.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-    <style>
-        :root {
-            --ink: #2a2621;
-            --muted: #8a8175;
-            --line: rgba(42, 38, 33, 0.09);
-            --paper: #fbf9f6;
-            --rose: #c2477a;
-            --rose-soft: rgba(194, 71, 122, 0.12);
-            --plum: #6e4b78;
-            --plum-soft: rgba(110, 75, 120, 0.12);
-            --sage: #5f8863;
-            --sage-soft: rgba(95, 136, 99, 0.13);
-            --amber: #c47f2c;
-            --amber-soft: rgba(196, 127, 44, 0.14);
-        }
-
-        #main-content {
-            color: var(--ink);
-        }
-
-        .page-topbar h1 {
-            color: var(--ink);
-            margin-bottom: 4px;
-        }
-
-        .page-subtitle {
-            color: var(--muted);
-            font-size: 0.92rem;
-            margin: 0;
-        }
-
-        /* ---- Metric cards ---- */
-        .insight-card {
-            background: #fff;
-            border-radius: 14px;
-            padding: 22px 24px;
-            box-shadow: 0 1px 2px rgba(42, 38, 33, 0.04);
-            border: 1px solid var(--line);
-            border-left: 3px solid var(--accent, var(--rose));
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            gap: 18px;
-            height: 100%;
-            transition: box-shadow 0.15s ease, transform 0.15s ease;
-        }
-
-        .insight-card:hover {
-            box-shadow: 0 6px 20px rgba(42, 38, 33, 0.08);
-            transform: translateY(-1px);
-        }
-
-        .insight-card.accent-sales { --accent: var(--rose); }
-        .insight-card.accent-orders { --accent: var(--plum); }
-        .insight-card.accent-users { --accent: var(--sage); }
-        .insight-card.accent-stock { --accent: var(--amber); }
-        .insight-card.accent-products { --accent: #3f7d8c; }
-        .insight-card.accent-categories { --accent: #c45c2c; }
-        .insight-card.accent-stock.is-alert { --accent: #b8433a; }
-
-        .insight-icon {
-            width: 52px;
-            height: 52px;
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: color-mix(in srgb, var(--accent, var(--rose)) 14%, white);
-            color: var(--accent, var(--rose));
-            flex-shrink: 0;
-        }
-
-        .insight-icon svg {
-            width: 26px;
-            height: 26px;
-        }
-
-        .insight-body {
-            display: flex;
-            flex-direction: column;
-            text-align: right;
-            flex: 1;
-            min-width: 0;
-            overflow-wrap: break-word;
-        }
-
-        .insight-title {
-            font-size: 0.8rem;
-            color: var(--muted);
-            font-weight: 500;
-            margin-bottom: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .insight-value {
-            font-variant-numeric: tabular-nums;
-            font-size: clamp(1.2rem, 1.5vw + 0.5rem, 1.6rem);
-            font-weight: 700;
-            color: var(--ink);
-            line-height: 1.1;
-            word-break: break-word;
-        }
-
-        .insight-card.is-alert .insight-value { color: #b8433a; }
-
-        /* ---- Chart / table cards ---- */
-        .chart-card, .customer-card {
-            background: #fff;
-            border-radius: 14px;
-            padding: 22px 24px;
-            box-shadow: 0 1px 2px rgba(42, 38, 33, 0.04);
-            border: 1px solid var(--line);
-            height: 100%;
-        }
-
-        .chart-card-header, .customer-card .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 18px;
-            padding: 0 0 14px;
-            border-bottom: 1px solid var(--line);
-            background: transparent;
-        }
-
-        .chart-card-header h2 {
-            font-weight: 600;
-            font-size: 1.08rem;
-            color: var(--ink);
-            margin: 0;
-        }
-
-        .customer-card .card-header span {
-            font-weight: 600;
-            font-size: 1.08rem;
-            color: var(--ink);
-        }
-
-        .chart-wrap { position: relative; height: 280px; }
-        .chart-wrap.small { height: 240px; }
-
-        .empty-panel {
-            color: var(--muted);
-            text-align: center;
-            padding: 40px 0;
-            font-size: 0.92rem;
-        }
-
-        /* ---- Tables ---- */
-        .table thead th {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            color: var(--muted);
-            font-weight: 600;
-            border-bottom: 1px solid var(--line);
-            padding-bottom: 10px;
-        }
-
-        .table td {
-            border-color: var(--line);
-            padding-top: 12px;
-            padding-bottom: 12px;
-            font-size: 0.92rem;
-        }
-
-        .stock-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 3px 10px;
-            border-radius: 999px;
-            font-size: 0.82rem;
-            font-weight: 600;
-            background: var(--amber-soft);
-            color: var(--amber);
-        }
-
-        .stock-pill.critical {
-            background: rgba(184, 67, 58, 0.12);
-            color: #b8433a;
-        }
-
-        .stock-pill::before {
-            content: "";
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: currentColor;
-        }
-
-    </style>
 </head>
 <body class="admin-ui">
 
@@ -289,7 +96,7 @@ $conn->close();
     <div class="page-content">
 
         <!-- Key metrics -->
-        <div class="row g-4 mb-4">
+        <div class="row dashboard-metrics">
             <div class="col-sm-6 col-lg-4">
                 <div class="insight-card accent-sales">
                     <div class="insight-icon">

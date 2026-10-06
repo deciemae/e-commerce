@@ -1,7 +1,9 @@
 <?php
 require_once 'config/db.php';
 require_once 'includes/product_colors.php';
-session_start();
+require_once __DIR__ . '/includes/session.php';
+startApplicationSession();
+require_once 'includes/customer_system.php';
 
 function renderStars(float $rating): string
 {
@@ -114,10 +116,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $product) {
     $rating = (int)($_POST['rating'] ?? 0);
     $reviewText = trim($_POST['review_text'] ?? '');
 
-    if ($rating < 1 || $rating > 5) {
+    if (!customerCsrfIsValid($_POST['csrf_token'] ?? null)) {
+        $error = 'Your review session expired. Please refresh the page and try again.';
+    } elseif ($rating < 1 || $rating > 5) {
         $error = 'Please choose a rating from 1 to 5 stars.';
     } elseif ($reviewText === '') {
         $error = 'Please write a review before submitting.';
+    } elseif (mb_strlen($reviewText) > 1000) {
+        $error = 'Reviews are limited to 1,000 characters.';
     } else {
         $stmt = $conn->prepare('INSERT INTO product_reviews (product_id, rating, review_text) VALUES (?, ?, ?)');
         $stmt->bind_param('iis', $productId, $rating, $reviewText);
@@ -130,7 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $product) {
             exit;
         }
 
-        $error = 'Failed to submit review: ' . $stmt->error;
+        $error = 'Your review could not be submitted. Please try again.';
         $stmt->close();
     }
 }
@@ -233,7 +239,7 @@ $isOutOfStock = $product ? ((int)$product['stock_quantity'] <= 0) : true;
                                 <label for="add-qty-<?= (int)$product['product_id'] ?>">Quantity</label>
                                 <input id="add-qty-<?= (int)$product['product_id'] ?>" type="number" value="1" min="1" max="<?= max(1, (int)$product['stock_quantity']) ?>" <?= $isOutOfStock ? 'disabled' : '' ?>>
                             </div>
-                            <button type="button" class="btn-add-cart pdp-add-button" onclick="addToCart(<?= (int)$product['product_id'] ?>, this)" <?= $isOutOfStock ? 'disabled' : '' ?>>
+                            <button type="button" class="btn-add-cart pdp-add-button" onclick="addToCart(<?= (int)$product['product_id'] ?>, this, event)" <?= $isOutOfStock ? 'disabled' : '' ?>>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5M3.102 4l1.313 7h8.17l1.313-7zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4m7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4m-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2m7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/></svg>
                                 <span><?= $isOutOfStock ? 'Out of Stock' : 'Add to Cart' ?></span>
                             </button>
@@ -253,6 +259,7 @@ $isOutOfStock = $product ? ((int)$product['stock_quantity'] <= 0) : true;
                         <div class="card-header-custom">Write a Review</div>
                         <div class="card-body p-4">
                             <form method="POST" action="product_details.php?product_id=<?= (int)$product['product_id'] ?>" class="pdp-review-form">
+                                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(customerCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
                                 <div class="mb-3">
                                     <label class="form-label">Rating</label>
                                     <?= renderStarInput('rating') ?>
@@ -299,10 +306,9 @@ $isOutOfStock = $product ? ((int)$product['stock_quantity'] <= 0) : true;
         <?php endif; ?>
     </div>
 
-    <div class="page-footer">
-        &copy; <?= date('Y') ?> Bloom &amp; Basket
-    </div>
 </main>
+
+<?php require __DIR__ . '/includes/customer_footer.php'; ?>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <div id="cart-toast-container"></div>
@@ -348,9 +354,25 @@ function getSelectedColor() {
     return sw ? (sw.dataset.selected || '') : '';
 }
 
-async function addToCart(productId, btn) {
+async function addToCart(productId, btn, event) {
+    var colorSwatches = document.querySelector('.color-swatches');
+    var hasColorOptions = colorSwatches && colorSwatches.querySelectorAll('.color-swatch').length > 0;
+    var selectedColor = getSelectedColor();
+
+    if (hasColorOptions && !selectedColor) {
+        showToast('Please select a valid product color.', 'error');
+        if (colorSwatches) {
+            colorSwatches.classList.remove('swatch-shake');
+            void colorSwatches.offsetWidth;
+            colorSwatches.classList.add('swatch-shake');
+            setTimeout(function() { colorSwatches.classList.remove('swatch-shake'); }, 600);
+        }
+        return;
+    }
+
     var qtyInput = document.getElementById('add-qty-' + productId);
     var qty = qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
+    var clickPos = (event && typeof event.clientX === 'number') ? { clientX: event.clientX, clientY: event.clientY } : null;
 
     btn.disabled = true;
     var origHTML = btn.innerHTML;
@@ -361,17 +383,28 @@ async function addToCart(productId, btn) {
         fd.append('action', 'add');
         fd.append('product_id', productId);
         fd.append('quantity', qty);
-        fd.append('color', getSelectedColor());
+        fd.append('color', selectedColor);
+        fd.append('csrf_token', <?= json_encode(customerCsrfToken(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>);
 
         var res = await fetch('cart_actions.php', { method: 'POST', body: fd });
         var data = await res.json();
 
         if (data.success) {
+            // Only fly to basket if the item was successfully added!
+            var mainImg = document.querySelector('.product-detail-image') || btn;
+            if (typeof window.animateFlyToCart === 'function') {
+                window.animateFlyToCart(mainImg, clickPos);
+            }
+
             showToast(data.message, 'success');
             btn.innerHTML = '✓ Added!';
-            var badge = document.getElementById('shop-cart-badge');
-            if (badge) {
-                badge.textContent = parseInt(badge.textContent || 0) + qty;
+            if (typeof window.updateNavCartCount === 'function' && typeof data.total_cart_qty !== 'undefined') {
+                window.updateNavCartCount(data.total_cart_qty);
+            } else {
+                var badge = document.getElementById('shop-cart-badge');
+                if (badge) {
+                    badge.textContent = parseInt(badge.textContent || 0) + qty;
+                }
             }
             setTimeout(function() { btn.innerHTML = origHTML; btn.disabled = false; }, 1200);
         } else {

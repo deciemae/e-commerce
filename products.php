@@ -1,6 +1,7 @@
 <?php
 require_once 'config/db.php';
-session_start();
+require_once __DIR__ . '/includes/session.php';
+startApplicationSession();
 require_once 'admin_auth.php';
 require_once 'includes/product_colors.php';
 requireAdminLogin();
@@ -12,15 +13,7 @@ function normalizeImagePath(?string $path): string
 
 function removeStoredImage(?string $path): void
 {
-    $path = normalizeImagePath($path);
-    if ($path === '' || preg_match('/^https?:\/\//i', $path)) {
-        return;
-    }
-
-    $fullPath = __DIR__ . '/' . ltrim($path, '/\\');
-    if (is_file($fullPath)) {
-        @unlink($fullPath);
-    }
+    adminRemoveStoredUpload(normalizeImagePath($path), __DIR__ . '/uploads');
 }
 
 function uploadProductImage(array $file, string &$error): string
@@ -40,13 +33,21 @@ function uploadProductImage(array $file, string &$error): string
         'image/gif' => 'gif',
         'image/webp' => 'webp',
     ];
+    $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
     $maxSize = 2 * 1024 * 1024;
 
     $tmpPath = $file['tmp_name'] ?? '';
     $fileSize = (int)($file['size'] ?? 0);
-    $mimeType = $tmpPath !== '' ? @mime_content_type($tmpPath) : false;
+    $originalExtension = strtolower(pathinfo((string)($file['name'] ?? ''), PATHINFO_EXTENSION));
+    if ($tmpPath === '' || !is_uploaded_file($tmpPath) || $fileSize <= 0) {
+        $error = 'The uploaded image is invalid.';
+        return '';
+    }
 
-    if (!$mimeType || !isset($allowedTypes[$mimeType])) {
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mimeType = $finfo->file($tmpPath);
+
+    if (!$mimeType || !isset($allowedTypes[$mimeType]) || !in_array($originalExtension, $allowedExtensions, true)) {
         $error = 'Invalid file type. Only JPG, PNG, GIF, and WEBP are allowed.';
         return '';
     }
@@ -92,17 +93,7 @@ function fetchProductById(mysqli $conn, int $productId): ?array
     return $product ?: null;
 }
 
-$success = '';
-$error   = '';
-
-if (!empty($_SESSION['flash_success'])) {
-    $success = $_SESSION['flash_success'];
-    unset($_SESSION['flash_success']);
-}
-if (!empty($_SESSION['flash_error'])) {
-    $error = $_SESSION['flash_error'];
-    unset($_SESSION['flash_error']);
-}
+$error = '';
 
 $conn = getConnection();
 
@@ -114,18 +105,24 @@ unset($_SESSION['flash_edit_product_id']);
 $editProduct = $editProductId > 0 ? fetchProductById($conn, $editProductId) : null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    adminRequireValidCsrf('products.php');
     $action = trim($_POST['action'] ?? 'add');
+
+    if (!in_array($action, ['add', 'update', 'delete'], true)) {
+        adminSetFlash('error', 'Invalid product action.');
+        adminRedirect('products.php');
+    }
 
     if ($action === 'delete') {
         $productId = (int)($_POST['product_id'] ?? 0);
 
         if ($productId <= 0) {
-            $_SESSION['flash_error'] = 'Invalid product selected for deletion.';
+            adminSetFlash('error', 'Invalid product selected for deletion.');
         } else {
             $product = fetchProductById($conn, $productId);
 
             if (!$product) {
-                $_SESSION['flash_error'] = 'Product not found.';
+                adminSetFlash('error', 'Product not found.');
             } else {
                 $stmt = $conn->prepare('DELETE FROM products WHERE product_id = ?');
                 $stmt->bind_param('i', $productId);
@@ -133,17 +130,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($stmt->execute()) {
                     logAdminActivity('Delete Product', "Deleted product ID: {$productId} ({$product['product_name']})");
                     removeStoredImage($product['image_url'] ?? '');
-                    $_SESSION['flash_success'] = 'Product "' . $product['product_name'] . '" deleted successfully.';
+                    adminSetFlash('success', 'Product "' . $product['product_name'] . '" deleted successfully.');
                 } else {
-                    $_SESSION['flash_error'] = 'Failed to delete product: ' . $stmt->error;
+                    adminSetFlash('error', 'The product could not be deleted. It may be referenced by an existing order.');
                 }
 
                 $stmt->close();
             }
         }
 
-        header('Location: products.php');
-        exit;
+        adminRedirect('products.php');
     }
 
     $productId      = (int)($_POST['product_id'] ?? 0);
@@ -151,16 +147,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $productName    = trim($_POST['product_name'] ?? '');
     $description    = trim($_POST['description'] ?? '');
     $priceInput     = trim($_POST['price'] ?? '');
-    $stockQuantity  = max(0, (int)($_POST['stock_quantity'] ?? 0));
+    $stockInput     = trim((string)($_POST['stock_quantity'] ?? ''));
+    $stockQuantity  = ctype_digit($stockInput) ? (int)$stockInput : -1;
     $colorOptions   = trim($_POST['color_options'] ?? '');
     $currentProduct = $action === 'update' && $productId > 0 ? fetchProductById($conn, $productId) : null;
 
+    $priceValue = is_numeric($priceInput) ? (float)$priceInput : -1;
+
     if ($productName === '') {
         $error = 'Product name is required.';
+    } elseif (mb_strlen($productName) > 255) {
+        $error = 'Product name is too long.';
     } elseif ($categoryId <= 0) {
         $error = 'Please select a valid category.';
-    } elseif (!is_numeric($priceInput) || (float)$priceInput < 0) {
+    } elseif (!is_finite($priceValue) || $priceValue < 0) {
         $error = 'Please enter a valid price (0 or greater).';
+    } elseif ($stockQuantity < 0) {
+        $error = 'Please enter a valid whole-number stock quantity.';
     } elseif ($action === 'update' && !$currentProduct) {
         $error = 'Product not found.';
     } else {
@@ -171,7 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($error === '') {
-            $price = number_format((float)$priceInput, 2, '.', '');
+            $price = number_format($priceValue, 2, '.', '');
             $imageUrl = $action === 'update' ? ($currentProduct['image_url'] ?? '') : '';
             if ($uploadedImage !== '') {
                 $imageUrl = $uploadedImage;
@@ -209,16 +212,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     removeStoredImage($currentProduct['image_url']);
                 }
 
-                $_SESSION['flash_success'] = $action === 'update'
+                adminSetFlash('success', $action === 'update'
                     ? 'Product "' . $productName . '" updated successfully.'
-                    : 'Product "' . $productName . '" added successfully.';
+                    : 'Product "' . $productName . '" added successfully.');
                 $stmt->close();
                 $conn->close();
-                header('Location: products.php');
-                exit;
+                adminRedirect('products.php');
             }
 
-            $error = 'Failed to save product: ' . $stmt->error;
+            $error = 'The product could not be saved. Please review the values and try again.';
             $stmt->close();
 
             if ($uploadedImage !== '') {
@@ -228,14 +230,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($error !== '') {
-        $_SESSION['flash_error'] = $error;
+        adminSetFlash('error', $error);
         if ($action === 'update' && $productId > 0) {
             $_SESSION['flash_edit_product_id'] = $productId;
         } else {
             $_SESSION['flash_add_error'] = true;
         }
-        header('Location: products.php' . ($action === 'update' && $productId > 0 ? '?edit=' . $productId : ''));
-        exit;
+        adminRedirect('products.php' . ($action === 'update' && $productId > 0 ? '?edit=' . $productId : ''));
     }
 }
 
@@ -280,6 +281,7 @@ $activePage = 'products';
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
+    <link rel="stylesheet" href="assets/admin.css">
 </head>
 <body class="admin-ui">
 
@@ -293,19 +295,6 @@ $activePage = 'products';
     ?>
 
     <div class="page-content">
-        <?php if ($success): ?>
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <?= htmlspecialchars($success) ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-        <?php if ($error): ?>
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <?= htmlspecialchars($error) ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-
 
 
         <div class="d-flex justify-content-end mb-3">
@@ -321,54 +310,56 @@ $activePage = 'products';
                     <div class="empty-state">No products found.</div>
                 <?php else: ?>
                     <div class="table-responsive">
-                        <table class="table table-hover mb-0">
+                        <table class="table table-hover mb-0 product-admin-table">
+                            <caption class="visually-hidden">Products, inventory, pricing, and management actions</caption>
                             <thead>
                                 <tr>
-                                    <th style="width:60px">Image</th>
-                                    <th style="width:60px">ID</th>
-                                    <th>Product Name</th>
-                                    <th>Category</th>
-                                    <th>Description</th>
-                                    <th>Price</th>
-                                    <th>Stock</th>
-                                    <th>Colors</th>
-                                    <th>Created At</th>
-                                    <th>Created By</th>
-                                    <th>Last Updated By</th>
-                                    <th style="width:170px">Actions</th>
+                                    <th class="product-column">Product</th>
+                                    <th class="category-column">Category</th>
+                                    <th class="description-column">Description</th>
+                                    <th class="price-column">Price</th>
+                                    <th class="inventory-column">Inventory</th>
+                                    <th class="audit-column">Record Details</th>
+                                    <th class="table-col-actions">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($products as $p): ?>
                                     <tr>
                                         <td>
-                                            <?php if (!empty($p['image_url'])): ?>
-                                                <a href="<?= htmlspecialchars($p['image_url']) ?>" target="_blank" rel="noopener noreferrer">
-                                                    <img src="<?= htmlspecialchars($p['image_url']) ?>" alt="<?= htmlspecialchars($p['product_name']) ?>" class="product-thumb">
-                                                </a>
-                                            <?php else: ?>
-                                                <span class="text-muted">—</span>
-                                            <?php endif; ?>
+                                            <div class="product-record">
+                                                <?php if (!empty($p['image_url'])): ?>
+                                                    <a href="<?= htmlspecialchars($p['image_url']) ?>" target="_blank" rel="noopener noreferrer">
+                                                        <img src="<?= htmlspecialchars($p['image_url']) ?>" alt="<?= htmlspecialchars($p['product_name']) ?>" class="product-thumb">
+                                                    </a>
+                                                <?php else: ?>
+                                                    <span class="product-thumb product-thumb-placeholder text-muted" aria-hidden="true">&mdash;</span>
+                                                <?php endif; ?>
+                                                <div class="product-record-copy">
+                                                    <span class="product-record-name"><?= htmlspecialchars($p['product_name']) ?></span>
+                                                    <span class="product-record-id">Product #<?= (int)$p['product_id'] ?></span>
+                                                </div>
+                                            </div>
                                         </td>
-                                        <td><?= (int)$p['product_id'] ?></td>
-                                        <td class="fw-semibold"><?= htmlspecialchars($p['product_name']) ?></td>
                                         <td><span class="cat-badge"><?= htmlspecialchars($p['category_name']) ?></span></td>
-                                        <td class="text-muted" style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                        <td class="text-muted table-cell-summary">
                                             <?= htmlspecialchars($p['description'] ?? '—') ?>
                                         </td>
                                         <td class="fw-semibold text-success">&#8369;<?= number_format((float)$p['price'], 2) ?></td>
-                                        <td><?= (int)$p['stock_quantity'] ?></td>
                                         <td>
-                                            <?php $productColors = $productColorMap[(int)$p['product_id']] ?? []; ?>
-                                            <?php if (!empty($productColors)): ?>
-                                                <?= htmlspecialchars(implode(', ', $productColors)) ?>
-                                            <?php else: ?>
-                                                <span class="text-muted">—</span>
-                                            <?php endif; ?>
+                                            <div class="product-inventory">
+                                                <span class="product-stock-value"><?= (int)$p['stock_quantity'] ?> in stock</span>
+                                                <?php $productColors = $productColorMap[(int)$p['product_id']] ?? []; ?>
+                                                <span class="product-colors"><?= !empty($productColors) ? htmlspecialchars(implode(', ', $productColors)) : 'No color options' ?></span>
+                                            </div>
                                         </td>
-                                        <td><?= htmlspecialchars($p['created_at']) ?></td>
-                                        <td class="text-muted"><?= htmlspecialchars($p['created_by_email'] ?? '—') ?></td>
-                                        <td class="text-muted"><?= htmlspecialchars($p['updated_by_email'] ?? '—') ?></td>
+                                        <td>
+                                            <div class="product-audit">
+                                                <span><strong>Created:</strong> <?= htmlspecialchars($p['created_at']) ?></span>
+                                                <span><strong>By:</strong> <?= htmlspecialchars($p['created_by_email'] ?? '—') ?></span>
+                                                <span><strong>Updated by:</strong> <?= htmlspecialchars($p['updated_by_email'] ?? '—') ?></span>
+                                            </div>
+                                        </td>
                                         <td>
                                             <div class="d-flex gap-2 align-items-center">
                                                 <a href="product_details.php?product_id=<?= (int)$p['product_id'] ?>" class="btn btn-sm btn-outline-primary action-icon" title="View product" aria-label="View product">
@@ -399,7 +390,7 @@ $activePage = 'products';
 </div>
 
 <div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable product-editor-modal">
         <div class="modal-content">
             <div class="modal-header border-0 pb-0">
                 <h5 class="modal-title fw-bold" id="productModalLabel"><?= $editProduct ? 'Edit Product' : 'Add New Product' ?></h5>
@@ -407,11 +398,12 @@ $activePage = 'products';
             </div>
             <div class="modal-body py-4">
                 <?php if (empty($categories)): ?>
-                    <p class="text-muted mb-0" style="font-size:.875rem;">
+                    <p class="text-muted mb-0 admin-form-hint">
                         You must <a href="categories.php">add a category</a> before adding a product.
                     </p>
                 <?php else: ?>
                     <form method="POST" action="products.php<?= $editProduct ? '?edit=' . (int)$editProduct['product_id'] : '' ?>" enctype="multipart/form-data">
+                        <?= adminCsrfInput() ?>
                         <input type="hidden" name="action" value="<?= $editProduct ? 'update' : 'add' ?>">
                         <?php if ($editProduct): ?>
                             <input type="hidden" name="product_id" value="<?= (int)$editProduct['product_id'] ?>">
@@ -489,11 +481,12 @@ $activePage = 'products';
             </div>
             <div class="modal-body">
                 <p class="mb-2">Are you sure you want to delete <strong id="deleteProductName">this product</strong>?</p>
-                <p class="text-muted mb-0" style="font-size:.875rem;">This action cannot be undone.</p>
+                <p class="text-muted mb-0 admin-form-hint">This action cannot be undone.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                 <form method="POST" action="products.php" class="m-0" id="deleteProductForm">
+                    <?= adminCsrfInput() ?>
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="product_id" id="deleteProductId" value="">
                     <button type="submit" class="btn btn-danger">Delete</button>

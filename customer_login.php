@@ -1,8 +1,10 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+startApplicationSession();
 require_once 'config/db.php';
 require_once 'includes/customer_system.php';
 require_once 'includes/validation.php';
+require_once 'includes/customer_toast.php';
 
 if (currentCustomerId()) {
     header('Location: index.php');
@@ -13,7 +15,8 @@ $conn = getConnection();
 
 $error = $_SESSION['customer_flash_error'] ?? '';
 $success = $_SESSION['customer_flash_success'] ?? '';
-unset($_SESSION['customer_flash_error'], $_SESSION['customer_flash_success']);
+$prefillEmail = trim((string)($_SESSION['customer_login_email'] ?? ''));
+unset($_SESSION['customer_flash_error'], $_SESSION['customer_flash_success'], $_SESSION['customer_login_email']);
 $csrfToken = customerCsrfToken();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -83,22 +86,18 @@ $conn->close();
                     <a href="shop.php" class="auth-back-link">Back to shop</a>
                 </div>
 
-                <p class="auth-kicker">Customer account</p>
                 <h1 id="sign-in-title">Sign in</h1>
                 <p class="auth-intro">Enter your account details to continue.</p>
 
                 <?php if ($error): ?>
                     <div class="alert alert-danger auth-alert" role="alert"><?= htmlspecialchars($error) ?></div>
                 <?php endif; ?>
-                <?php if ($success): ?>
-                    <div class="alert alert-success auth-alert" role="status"><?= htmlspecialchars($success) ?></div>
-                <?php endif; ?>
 
                 <form method="post" class="auth-form">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES) ?>">
                     <div>
                         <label class="form-label" for="email">Email address</label>
-                        <input type="email" class="form-control" id="email" name="email" required maxlength="255" autocomplete="email" value="<?= htmlspecialchars($_POST['email'] ?? '', ENT_QUOTES) ?>">
+                        <input type="email" class="form-control" id="email" name="email" required maxlength="255" autocomplete="email" value="<?= htmlspecialchars($_POST['email'] ?? $prefillEmail, ENT_QUOTES) ?>">
                     </div>
                     <div>
                         <label class="form-label" for="password">Password</label>
@@ -112,5 +111,6 @@ $conn->close();
         </section>
     </div>
 </main>
+<?php renderCustomerSuccessToast($success); ?>
 </body>
 </html>

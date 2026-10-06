@@ -1,11 +1,13 @@
 <?php
-// Shared admin topbar: page title (left) + optional extra actions + profile menu (right).
+// Shared admin utility bar plus a content-level page heading.
 // Usage: set $pageTitle (and optionally $topbarActions, a raw HTML string) before requiring this file.
 // Uses its own DB connection so it never clobbers a $conn already in scope on the including page.
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+require_once __DIR__ . '/session.php';
+startApplicationSession();
+
+require_once __DIR__ . '/admin_toast.php';
+$adminFlash = adminPullFlash();
 
 $adminPhotoPath = null;
 $adminEmail = $_SESSION['admin_email'] ?? null;
@@ -21,15 +23,29 @@ if ($adminEmail) {
     }
     $topbarConn->close();
 }
-?>
-<div class="page-topbar d-flex justify-content-between align-items-center flex-wrap gap-3">
-    <div>
-        <h1><?= htmlspecialchars($pageTitle ?? 'Admin Dashboard') ?></h1>
-    </div>
 
-    <div class="d-flex align-items-center gap-3">
+$pageSubtitleMap = [
+    'Dashboard' => 'Store performance and operational priorities',
+    'Products' => 'Catalog, pricing, inventory, and product media',
+    'Categories' => 'Organize the storefront catalog',
+    'Customers' => 'Registered customer activity and order value',
+    'Order Management' => 'Review and update fulfillment status',
+    'Order Details' => 'Items, delivery information, and order totals',
+    'Activity Logs' => 'Administrator access and recorded actions',
+    'My Account' => 'Profile, account details, and password security',
+    'Settings' => 'Administrative access and security policies',
+];
+$resolvedPageTitle = $pageTitle ?? 'Admin Dashboard';
+$pageSubtitle = $pageSubtitle ?? ($pageSubtitleMap[$resolvedPageTitle] ?? 'Bloom & Basket operations');
+?>
+<header class="page-topbar">
+    <div class="page-topbar-actions d-flex align-items-center gap-3">
         <?php if (!empty($topbarActions)): ?>
             <?= $topbarActions ?>
+        <?php endif; ?>
+
+        <?php if ($adminEmail): ?>
+            <span class="page-topbar-identity"><?= htmlspecialchars($adminEmail) ?></span>
         <?php endif; ?>
 
         <div class="dropdown profile-menu">
@@ -49,12 +65,23 @@ if ($adminEmail) {
                 </li>
                 <li><hr class="dropdown-divider"></li>
                 <li>
-                    <a class="dropdown-item text-danger" href="admin_logout.php">
+                    <form method="post" action="admin_logout.php" class="admin-logout-form">
+                        <?= adminCsrfInput() ?>
+                        <button class="dropdown-item text-danger" type="submit">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
                         Logout
-                    </a>
+                        </button>
+                    </form>
                 </li>
             </ul>
         </div>
     </div>
-</div>
+</header>
+<?php renderAdminToast($adminFlash); ?>
+
+<section class="admin-page-intro" aria-labelledby="adminPageTitle">
+    <h1 id="adminPageTitle"><?= htmlspecialchars($resolvedPageTitle) ?></h1>
+    <?php if (!empty($pageSubtitle)): ?>
+        <p><?= htmlspecialchars($pageSubtitle) ?></p>
+    <?php endif; ?>
+</section>

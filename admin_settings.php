@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+startApplicationSession();
 require_once 'config/db.php';
 require_once 'admin_auth.php';
 requireAdminLogin();
@@ -7,20 +8,22 @@ requireAdminLogin();
 $conn = getConnection();
 $message = '';
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    adminRequireValidCsrf('admin_settings.php');
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_settings'])) {
-    $threshold = (int)$_POST['lockout_threshold'];
-    $duration = (int)$_POST['lockout_duration'];
-    $mfaEnabled = isset($_POST['mfa_enabled']) ? '1' : '0';
-    $pwdMinLength = (int)$_POST['password_min_length'];
+    $threshold = (int)($_POST['lockout_threshold'] ?? 0);
+    $duration = (int)($_POST['lockout_duration'] ?? 0);
+    $pwdMinLength = (int)($_POST['password_min_length'] ?? 0);
     $pwdReqSpec = isset($_POST['password_require_special']) ? '1' : '0';
     $pwdReqNum = isset($_POST['password_require_number']) ? '1' : '0';
     $pwdReqUpper = isset($_POST['password_require_uppercase']) ? '1' : '0';
 
-    if ($threshold > 0 && $duration > 0 && $pwdMinLength >= 4) {
+    if ($threshold >= 1 && $threshold <= 20 && $duration >= 1 && $duration <= 1440 && $pwdMinLength >= 8 && $pwdMinLength <= 72) {
         $updates = [
             'lockout_threshold' => (string)$threshold,
             'lockout_duration' => (string)$duration,
-            'mfa_enabled' => $mfaEnabled,
             'password_min_length' => (string)$pwdMinLength,
             'password_require_special' => $pwdReqSpec,
             'password_require_number' => $pwdReqNum,
@@ -35,25 +38,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_settings'])) {
         }
 
         logAdminActivity('Update Settings', "Updated security policies (Lockout, MFA, Password)");
-        $message = '<div class="alert alert-success">Settings updated successfully.</div>';
+        $conn->close();
+        adminSetFlash('success', 'Settings updated successfully.');
+        adminRedirect('admin_settings.php');
     } else {
-        $message = '<div class="alert alert-danger">Invalid values provided. Ensure password minimum length is at least 4.</div>';
+        $message = '<div class="alert alert-danger" role="alert">Enter a lockout threshold from 1 to 20, a duration from 1 to 1440 minutes, and a password length from 8 to 72.</div>';
     }
 }
 
 // Unlock account action
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['unlock_account'])) {
-    $unlock_email = trim($_POST['unlock_email']);
+    $unlock_email = trim($_POST['unlock_email'] ?? '');
+    if (!filter_var($unlock_email, FILTER_VALIDATE_EMAIL)) {
+        $conn->close();
+        adminSetFlash('error', 'Select a valid administrator account.');
+        adminRedirect('admin_settings.php');
+    }
     $stmt = $conn->prepare("UPDATE admins SET is_locked = 0, failed_attempts = 0, locked_until = NULL WHERE email = ?");
     $stmt->bind_param('s', $unlock_email);
     $stmt->execute();
     if ($stmt->affected_rows > 0) {
-        $message = '<div class="alert alert-success">Account unlocked successfully.</div>';
+        adminSetFlash('success', 'Account unlocked successfully.');
         logAdminActivity('Unlock Account', "Unlocked account: $unlock_email");
     } else {
-        $message = '<div class="alert alert-danger">Failed to unlock account or account not found.</div>';
+        adminSetFlash('error', 'The account could not be unlocked or is no longer locked.');
     }
     $stmt->close();
+    $conn->close();
+    adminRedirect('admin_settings.php');
 }
 
 // Fetch current settings
@@ -94,120 +106,7 @@ $conn->close();
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
-    <style>
-        :root {
-            --ink: #2a2621;
-            --muted: #8a8175;
-            --line: rgba(42, 38, 33, 0.09);
-            --paper: #fbf9f6;
-            --rose: #c2477a;
-            --rose-soft: rgba(194, 71, 122, 0.12);
-        }
-        #main-content { color: var(--ink); }
-        .page-topbar h1 { color: var(--ink); margin-bottom: 4px; }
-        .page-subtitle { color: var(--muted); font-size: 0.92rem; margin: 0; }
-        
-        .security-header {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--ink);
-            margin-bottom: 1rem;
-        }
-
-        /* Pill Navigation Styles */
-        .nav-pills-custom {
-            display: flex;
-            gap: 12px;
-            overflow-x: auto;
-            padding-bottom: 8px;
-            margin-bottom: 24px;
-            /* Hide scrollbar */
-            scrollbar-width: none; 
-            -ms-overflow-style: none;
-        }
-        .nav-pills-custom::-webkit-scrollbar { 
-            display: none; 
-        }
-
-        .nav-pills-custom .nav-link {
-            background-color: #fff;
-            color: #334155;
-            border: 1px solid #e2e8f0;
-            border-radius: 9999px; /* Fully rounded pill */
-            padding: 6px 16px;
-            font-weight: 500;
-            font-size: 0.9rem;
-            white-space: nowrap;
-            transition: all 0.2s ease;
-        }
-
-        .nav-pills-custom .nav-link:hover {
-            border-color: #cbd5e1;
-            background-color: #f8fafc;
-        }
-
-        .nav-pills-custom .nav-link.active {
-            background-color: #2563eb;
-            color: #ffffff;
-            border-color: #2563eb;
-            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
-        }
-
-        .settings-card {
-            background: #fff;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 2px 4px -1px rgba(42, 38, 33, 0.04);
-            border: 1px solid var(--line);
-            margin-bottom: 20px;
-        }
-        
-        .settings-card h3 {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--ink);
-            margin-bottom: 4px;
-        }
-        .settings-card p.text-muted {
-            font-size: 0.85rem;
-            margin-bottom: 20px;
-        }
-
-
-        .form-check-custom {
-            padding: 8px 12px;
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            transition: background 0.15s ease;
-            font-size: 0.9rem;
-        }
-        .form-check-custom:hover {
-            background: var(--paper);
-        }
-        .form-check-custom .form-check-input {
-            margin-top: 0;
-            margin-right: 10px;
-            width: 1em;
-            height: 1em;
-        }
-        .form-check-custom .form-check-label {
-            font-weight: 500;
-            cursor: pointer;
-            width: 100%;
-            margin: 0;
-        }
-
-        .form-group-custom {
-            background: var(--paper);
-            padding: 16px;
-            border-radius: 8px;
-            border: 1px solid var(--line);
-            margin-bottom: 16px;
-        }
-    </style>
+    <link rel="stylesheet" href="assets/admin.css">
 </head>
 <body class="admin-ui">
 
@@ -235,6 +134,7 @@ $conn->close();
         </ul>
 
         <form method="POST">
+            <?= adminCsrfInput() ?>
             <input type="hidden" name="update_settings" value="1">
             
             <!-- Tabs Content -->
@@ -250,12 +150,12 @@ $conn->close();
                             <div class="row g-4">
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Failed Login Threshold</label>
-                                    <input type="number" name="lockout_threshold" class="form-control" value="<?= htmlspecialchars((string)$settings['lockout_threshold']) ?>" min="1" required>
+                                    <input type="number" name="lockout_threshold" class="form-control" value="<?= htmlspecialchars((string)$settings['lockout_threshold']) ?>" min="1" max="20" required>
                                     <div class="form-text small">Number of failed login attempts allowed before the account gets temporarily locked.</div>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Lockout Duration (Minutes)</label>
-                                    <input type="number" name="lockout_duration" class="form-control" value="<?= htmlspecialchars((string)$settings['lockout_duration']) ?>" min="1" required>
+                                    <input type="number" name="lockout_duration" class="form-control" value="<?= htmlspecialchars((string)$settings['lockout_duration']) ?>" min="1" max="1440" required>
                                     <div class="form-text small">Duration in minutes for which the account remains locked.</div>
                                 </div>
                             </div>
@@ -295,10 +195,11 @@ $conn->close();
                                 <strong class="d-block">Require Email Verification for all Admins</strong>
                                 <span class="text-muted small">Administrators will be prompted to enter a verification code sent to their registered email address upon login.</span>
                             </div>
-                            <div class="form-check form-switch m-0 p-0" style="padding-left: 2rem !important;">
-                                <input class="form-check-input ms-0" type="checkbox" role="switch" id="mfa_enabled" name="mfa_enabled" <?= $settings['mfa_enabled'] ? 'checked' : '' ?>>
+                            <div class="form-check form-switch m-0 p-0 settings-switch">
+                                <input class="form-check-input ms-0" type="checkbox" role="switch" id="mfa_enabled" disabled aria-describedby="mfa_status">
                             </div>
                         </div>
+                        <p id="mfa_status" class="text-muted mb-0"><strong>DEFERRED:</strong> Email-code delivery and verification are not implemented, so this control cannot be enabled yet.</p>
                     </div>
                 </div>
 
@@ -311,7 +212,7 @@ $conn->close();
                         <div class="form-group-custom">
                             <div class="mb-3">
                                 <label class="form-label fw-bold">Minimum Password Length</label>
-                                <input type="number" name="password_min_length" class="form-control w-50" value="<?= htmlspecialchars((string)$settings['password_min_length']) ?>" min="4" required>
+                                <input type="number" name="password_min_length" class="form-control w-50" value="<?= htmlspecialchars((string)$settings['password_min_length']) ?>" min="8" max="72" required>
                                 <div class="form-text small">We recommend a minimum of 8 characters for administrative accounts.</div>
                             </div>
 
@@ -356,7 +257,8 @@ $conn->close();
 
 <!-- Forms for unlocking accounts -->
 <?php foreach ($locked_accounts as $acc): ?>
-    <form method="POST" id="unlockForm_<?= md5($acc['email']) ?>" style="display:none;">
+    <form method="POST" id="unlockForm_<?= md5($acc['email']) ?>" class="unlock-form">
+        <?= adminCsrfInput() ?>
         <input type="hidden" name="unlock_email" value="<?= htmlspecialchars($acc['email']) ?>">
         <input type="hidden" name="unlock_account" value="1">
     </form>

@@ -1,10 +1,10 @@
 <?php
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
+require_once __DIR__ . '/includes/session.php';
+startApplicationSession();
 
 require_once __DIR__ . '/includes/validation.php';
+require_once __DIR__ . '/includes/admin_security.php';
 require_once __DIR__ . '/config/db.php';
 
 // Admin login is now handled via DB in admin_login.php
@@ -22,6 +22,8 @@ function currentAdminId(): ?int
 function adminLoginUser(string $email): void
 {
     $email = strtolower(trim($email));
+
+    session_regenerate_id(true);
 
     $_SESSION['admin_logged_in'] = true;
     $_SESSION['admin_email'] = $email;
@@ -61,6 +63,10 @@ function adminLogout(): void
 
 function requireAdminLogin(): void
 {
+    if (!headers_sent()) {
+        header('Cache-Control: no-store, private');
+    }
+
     if (!adminIsLoggedIn()) {
         $_SESSION['admin_login_error'] = 'Please log in to access the admin panel.';
         header('Location: admin_login.php');

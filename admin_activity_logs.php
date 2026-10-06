@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+startApplicationSession();
 require_once 'config/db.php';
 require_once 'admin_auth.php';
 requireAdminLogin();
@@ -24,25 +25,7 @@ $conn->close();
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="assets/design-system.css">
     <link rel="stylesheet" href="assets/style.css">
-    <style>
-        :root {
-            --ink: #2a2621;
-            --muted: #8a8175;
-            --line: rgba(42, 38, 33, 0.09);
-            --paper: #fbf9f6;
-            --rose: #c2477a;
-        }
-        #main-content { color: var(--ink); }
-        .page-topbar h1 { color: var(--ink); margin-bottom: 4px; }
-        .page-subtitle { color: var(--muted); font-size: 0.92rem; margin: 0; }
-        .log-card {
-            background: #fff;
-            border-radius: 14px;
-            padding: 22px 24px;
-            box-shadow: 0 1px 2px rgba(42, 38, 33, 0.04);
-            border: 1px solid var(--line);
-        }
-    </style>
+    <link rel="stylesheet" href="assets/admin.css">
 </head>
 <body class="admin-ui">
 

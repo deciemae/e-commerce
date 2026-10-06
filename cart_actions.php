@@ -1,30 +1,75 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session.php';
+startApplicationSession();
 require_once 'config/db.php';
 require_once 'includes/customer_system.php';
 header('Content-Type: application/json');
 
 // ── Helpers ───────────────────────────────────────────────────
-function jsonOut(bool $ok, string $msg): void {
-    echo json_encode(['success' => $ok, 'message' => $msg]);
+function getCartTotalQuantity(mysqli $conn, int $cartId): int {
+    $stmt = $conn->prepare('SELECT SUM(quantity) as total_qty FROM cart_items WHERE cart_id = ?');
+    if (!$stmt) {
+        return 0;
+    }
+    $stmt->bind_param('i', $cartId);
+    $stmt->execute();
+    $res = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return (int)($res['total_qty'] ?? 0);
+}
+
+function jsonOut(bool $ok, string $msg, array $extra = []): void {
+    echo json_encode(array_merge(['success' => $ok, 'message' => $msg], $extra));
     exit;
+}
+
+function cartColorIsValid(mysqli $conn, int $productId, string $color): bool
+{
+    $stmt = $conn->prepare('SELECT color FROM product_colors WHERE product_id = ? ORDER BY product_color_id ASC');
+    $stmt->bind_param('i', $productId);
+    $stmt->execute();
+    $colors = array_column($stmt->get_result()->fetch_all(MYSQLI_ASSOC), 'color');
+    $stmt->close();
+
+    if (empty($colors)) {
+        return $color === '';
+    }
+
+    return in_array($color, $colors, true);
+}
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    http_response_code(405);
+    header('Allow: POST');
+    jsonOut(false, 'Method not allowed.');
+}
+
+if (!customerCsrfIsValid($_POST['csrf_token'] ?? null)) {
+    http_response_code(403);
+    jsonOut(false, 'Your cart session expired. Please refresh the page and try again.');
 }
 
 // ── Route ─────────────────────────────────────────────────────
 $action = trim($_POST['action'] ?? '');
 $conn   = getConnection();
-ensureCustomerTables($conn);
 
 switch ($action) {
 
     // ── ADD ──────────────────────────────────────────────────
     case 'add':
         $product_id = (int)($_POST['product_id'] ?? 0);
-        $quantity   = max(1, (int)($_POST['quantity'] ?? 1));
+        $quantityInput = trim((string)($_POST['quantity'] ?? ''));
+        $quantity   = ctype_digit($quantityInput) ? (int)$quantityInput : 0;
         $color      = trim($_POST['color'] ?? '');
 
         if ($product_id <= 0) {
             jsonOut(false, 'Invalid product.');
+        }
+        if ($quantity < 1) {
+            jsonOut(false, 'Quantity must be at least 1.');
+        }
+        if (mb_strlen($color) > 50) {
+            jsonOut(false, 'Invalid product color.');
         }
 
         // Verify product exists and has stock
@@ -39,6 +84,12 @@ switch ($action) {
         }
         if ($prod['stock_quantity'] <= 0) {
             jsonOut(false, 'Product is out of stock.');
+        }
+        if ($quantity > (int)$prod['stock_quantity']) {
+            jsonOut(false, 'Requested quantity exceeds available stock.');
+        }
+        if (!cartColorIsValid($conn, $product_id, $color)) {
+            jsonOut(false, 'Please select a valid product color.');
         }
 
         $cart_id = getOrCreateCart($conn);
@@ -56,11 +107,15 @@ switch ($action) {
 
         if ($existing) {
             $new_qty = $existing['quantity'] + $quantity;
+            if ($new_qty > (int)$prod['stock_quantity']) {
+                jsonOut(false, 'Requested quantity exceeds available stock.');
+            }
             $stmt = $conn->prepare('UPDATE cart_items SET quantity = ? WHERE cart_item_id = ?');
             $stmt->bind_param('ii', $new_qty, $existing['cart_item_id']);
             $stmt->execute();
             $stmt->close();
-            jsonOut(true, 'Cart updated — quantity increased.');
+            $totalQty = getCartTotalQuantity($conn, $cart_id);
+            jsonOut(true, 'Cart updated — quantity increased.', ['total_cart_qty' => $totalQty]);
         } else {
             $stmt = $conn->prepare(
                 'INSERT INTO cart_items (cart_id, product_id, quantity, color) VALUES (?, ?, ?, ?)'
@@ -68,7 +123,8 @@ switch ($action) {
             $stmt->bind_param('iiis', $cart_id, $product_id, $quantity, $color_check);
             $stmt->execute();
             $stmt->close();
-            jsonOut(true, 'Product added to cart!');
+            $totalQty = getCartTotalQuantity($conn, $cart_id);
+            jsonOut(true, 'Product added to cart!', ['total_cart_qty' => $totalQty]);
         }
         break;
 
@@ -85,9 +141,17 @@ switch ($action) {
         if ($quantity < 1) {
             jsonOut(false, 'Quantity must be at least 1.');
         }
+        if (mb_strlen($color) > 50) {
+            jsonOut(false, 'Invalid product color.');
+        }
 
         $cart_id = getOrCreateCart($conn);
-        $stmt = $conn->prepare('SELECT cart_item_id FROM cart_items WHERE cart_item_id = ? AND cart_id = ?');
+        $stmt = $conn->prepare(
+            'SELECT ci.cart_item_id, ci.product_id, p.stock_quantity
+             FROM cart_items ci
+             INNER JOIN products p ON p.product_id = ci.product_id
+             WHERE ci.cart_item_id = ? AND ci.cart_id = ?'
+        );
         $stmt->bind_param('ii', $cart_item_id, $cart_id);
         $stmt->execute();
         $ownedItem = $stmt->get_result()->fetch_assoc();
@@ -95,6 +159,12 @@ switch ($action) {
 
         if (!$ownedItem) {
             jsonOut(false, 'Cart item not found.');
+        }
+        if ($quantity > (int)$ownedItem['stock_quantity']) {
+            jsonOut(false, 'Requested quantity exceeds available stock.');
+        }
+        if (!cartColorIsValid($conn, (int)$ownedItem['product_id'], $color)) {
+            jsonOut(false, 'Please select a valid product color.');
         }
 
         $stmt = $conn->prepare(
@@ -104,7 +174,8 @@ switch ($action) {
         $stmt->execute();
         $stmt->close();
 
-        jsonOut(true, 'Cart updated.');
+        $totalQty = getCartTotalQuantity($conn, $cart_id);
+        jsonOut(true, 'Cart updated.', ['total_cart_qty' => $totalQty]);
         break;
 
     // ── REMOVE ───────────────────────────────────────────────
@@ -131,7 +202,8 @@ switch ($action) {
         $stmt->execute();
         $stmt->close();
 
-        jsonOut(true, 'Item removed from cart.');
+        $totalQty = getCartTotalQuantity($conn, $cart_id);
+        jsonOut(true, 'Item removed from cart.', ['total_cart_qty' => $totalQty]);
         break;
 
     // ── CLEAR ────────────────────────────────────────────────
@@ -141,7 +213,7 @@ switch ($action) {
         $stmt->bind_param('i', $cart_id);
         $stmt->execute();
         $stmt->close();
-        jsonOut(true, 'Cart cleared.');
+        jsonOut(true, 'Cart cleared.', ['total_cart_qty' => 0]);
         break;
 
     default:

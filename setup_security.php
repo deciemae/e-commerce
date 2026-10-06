@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/includes/setup_guard.php';
+requireCommandLineSetupApproval();
 require_once 'config/db.php';
 $conn = getConnection();
 $conn->query("INSERT IGNORE INTO admin_security_settings (setting_name, setting_value) VALUES 

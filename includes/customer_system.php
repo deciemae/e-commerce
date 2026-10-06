@@ -1,8 +1,7 @@
 <?php
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
-}
+require_once __DIR__ . '/session.php';
+startApplicationSession();
 
 function customerCsrfToken(): string
 {
@@ -21,32 +20,6 @@ function customerCsrfIsValid(?string $token): bool
         && is_string($token)
         && $token !== ''
         && hash_equals($storedToken, $token);
-}
-
-function ensureCustomerTables(mysqli $conn): void
-{
-    $conn->query(
-        'CREATE TABLE IF NOT EXISTS customer_addresses (
-            address_id INT(11) NOT NULL AUTO_INCREMENT,
-            user_id INT(11) NOT NULL,
-            label VARCHAR(50) NOT NULL,
-            recipient_name VARCHAR(100) NOT NULL,
-            phone_number VARCHAR(20) NOT NULL,
-            address_line1 VARCHAR(150) NOT NULL,
-            address_line2 VARCHAR(150) DEFAULT NULL,
-            city VARCHAR(100) NOT NULL,
-            state VARCHAR(100) DEFAULT NULL,
-            postal_code VARCHAR(20) DEFAULT NULL,
-            country VARCHAR(100) NOT NULL DEFAULT "Philippines",
-            is_default TINYINT(1) NOT NULL DEFAULT 0,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            PRIMARY KEY (address_id),
-            KEY fk_customer_addresses_user (user_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci'
-    );
-
-    $conn->query('ALTER TABLE orders MODIFY shipping_address TEXT NULL');
 }
 
 function currentCustomerId(): ?int
@@ -83,6 +56,10 @@ function customerLogout(): void
 
 function requireCustomerLogin(): void
 {
+    if (!headers_sent()) {
+        header('Cache-Control: no-store, private');
+    }
+
     if (!currentCustomerId()) {
         $_SESSION['customer_flash_error'] = 'Please log in to continue.';
         header('Location: customer_login.php');
