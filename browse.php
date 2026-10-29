@@ -3,6 +3,7 @@ require_once __DIR__ . '/includes/session.php';
 startApplicationSession();
 require_once 'config/db.php';
 require_once 'includes/customer_system.php';
+require_once 'includes/customer_favourites.php';
 require_once 'includes/product_colors.php';
 
 function colorToCSS(string $name): string {
@@ -59,19 +60,12 @@ if ($stmt) {
 }
 
 $productColorMap = fetchProductColorsForIds($conn, array_column($products, 'product_id'));
-
-$cartQty = 0;
-if (currentCustomerId() || !empty($_SESSION['cart_id'])) {
-    $cartId = getOrCreateCart($conn);
-    $stmt = $conn->prepare('SELECT COALESCE(SUM(quantity), 0) AS total_qty FROM cart_items WHERE cart_id = ?');
-    $stmt->bind_param('i', $cartId);
-    $stmt->execute();
-    $cartQty = (int)($stmt->get_result()->fetch_assoc()['total_qty'] ?? 0);
-    $stmt->close();
-}
+$customerId = currentCustomerId();
+$favouriteProductIds = $customerId
+    ? customerFavouriteProductIds($conn, $customerId, array_column($products, 'product_id'))
+    : [];
 
 $loggedIn = currentCustomerId() !== null;
-$customerName = currentCustomerName();
 
 $conn->close();
 ?>
@@ -93,32 +87,10 @@ $conn->close();
 <?php $customerActivePage = 'shop'; require_once 'includes/customer_nav.php'; ?>
 
 <div id="main-content">
-    <div class="page-topbar d-flex align-items-center justify-content-between gap-3 flex-wrap">
-        <div>
-            <h1>Shop</h1>
-            <div class="form-muted">Discover products, compare options, and continue shopping before checkout.</div>
-        </div>
-        <div class="d-flex align-items-center gap-2 flex-wrap ms-auto">
-            <form method="GET" action="shop.php" class="d-flex align-items-center gap-2 search-form">
-                <input type="search" name="q" value="<?= htmlspecialchars($searchTerm, ENT_QUOTES) ?>" class="form-control" placeholder="Search products..." aria-label="Search products">
-                <button type="submit" class="btn btn-primary">Search</button>
-                <?php if ($searchTerm !== ''): ?>
-                    <a href="shop.php" class="btn btn-outline-secondary">Clear</a>
-                <?php endif; ?>
-            </form>
-            <a href="cart.php" class="btn btn-primary d-inline-flex align-items-center gap-2">
-                <span class="d-inline-flex align-items-center gap-1"><?= renderCartIcon('cart-icon') ?> <span>View Shopping Cart</span></span>
-                <span class="badge bg-white text-primary rounded-pill" id="shop-cart-badge"><?= $cartQty ?></span>
-            </a>
-        </div>
-    </div>
-
     <div class="page-content">
         <section class="catalog-heading" aria-labelledby="catalog-title">
-            <div>
-                <p class="catalog-eyebrow">Bloom &amp; Basket catalog</p>
+            <div class="catalog-heading-title">
                 <h1 id="catalog-title">Shop all products</h1>
-                <p>Discover products, compare options, and continue shopping when you are ready.</p>
             </div>
             <form method="GET" action="browse.php" class="catalog-search" role="search">
                 <label class="visually-hidden" for="browse-search-input">Search catalog</label>
@@ -148,14 +120,17 @@ $conn->close();
                                                     <div class="no-img-placeholder">🛍️</div>
                                                 </a>
                                             <?php endif; ?>
-                                        <span class="cat-badge mb-1 position-absolute top-0 start-0 m-3"><?= htmlspecialchars($product['category_name']) ?></span>
+                                        <?php renderFavouriteButton(
+                                            (int)$product['product_id'],
+                                            in_array((int)$product['product_id'], $favouriteProductIds, true),
+                                            $customerId !== null,
+                                            'favourite-toggle-card'
+                                        ); ?>
                                     </div>
 
                                     <div class="product-info">
                                         <div class="catalog-product-name"><?= htmlspecialchars($product['product_name']) ?></div>
-                                        <p class="catalog-product-description">
-                                            <?= htmlspecialchars($product['description'] ?? 'No description provided.') ?>
-                                        </p>
+                                        <span class="cat-badge"><?= htmlspecialchars($product['category_name']) ?></span>
                                         <div class="catalog-price-stock">
                                             <div class="catalog-price">&#8369;<?= number_format((float)$product['price'], 2) ?></div>
                                             <div class="catalog-stock">

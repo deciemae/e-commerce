@@ -13,7 +13,7 @@ A framework-free PHP 8.3 and MySQL storefront with customer and administrator ex
 - [`docs/security-audit.md`](docs/security-audit.md) - Phase 6 endpoint and deployment security
   findings, resolutions, and remaining risks.
 - [`docs/database-operations.md`](docs/database-operations.md) - safe database backup, restore,
-  and proposed schema-versioning workflow.
+  and approved ordered-migration workflow.
 - [`docs/deployment.md`](docs/deployment.md) - PHP/MySQL production configuration and release
   verification checklist.
 - [`docs/phase-6-release-readiness.md`](docs/phase-6-release-readiness.md) - regression scope,
@@ -37,3 +37,11 @@ retaining the existing Laragon defaults for local development:
 
 Setup scripts are command-line only and require `ALLOW_DB_SETUP=1`. Do not enable them on a
 production web request.
+
+## Database migrations
+
+Ordered migrations live in `database/migrations/` and are tracked in `schema_migrations`.
+Check status with `php migrate.php --status`. After creating and verifying a backup, apply
+pending migrations from the command line with `ALLOW_DB_MIGRATIONS=1 php migrate.php --apply`
+(PowerShell: `$env:ALLOW_DB_MIGRATIONS='1'; php .\migrate.php --apply`). Never expose the
+migration runner as a web endpoint.

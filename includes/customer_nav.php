@@ -59,10 +59,15 @@ if (function_exists('getConnection') && function_exists('getOrCreateCart')) {
                     aria-label="Search products"
                 >
             </form>
+            <a href="favourites.php" class="nav-icon-link customer-nav-favourites <?= $customerActivePage === 'favourites' ? 'active' : '' ?>" aria-label="Favourites">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20.8 4.7a5.5 5.5 0 0 0-7.8 0L12 5.8l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.5a5.5 5.5 0 0 0 0-7.8Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </a>
             <a href="cart.php" class="nav-icon-link customer-nav-cart <?= $customerActivePage === 'cart' ? 'active' : '' ?>" aria-label="Cart" id="customer-nav-cart-btn">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 9.4a1 1 0 0 0 1 .8h8.9a1 1 0 0 0 1-.75L19 7H6.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                    <circle cx="10" cy="18" r="1.5" fill="currentColor"/>
-                    <circle cx="17" cy="18" r="1.5" fill="currentColor"/>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5.5 8.5h13l-.8 11H6.3l-.8-11Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                    <path d="M9 9V6.5a3 3 0 0 1 6 0V9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
                 </svg>
                 <span class="customer-nav-cart-count" id="customer-nav-cart-count" style="<?= $navCartCount > 0 ? '' : 'display:none;' ?>">
                     <span class="cart-count-number"><?= $navCartCount > 99 ? '99+' : $navCartCount ?></span>
@@ -95,6 +100,7 @@ if (function_exists('getConnection') && function_exists('getOrCreateCart')) {
             </div>
         </div>
     </div>
+    <div id="favourite-status" class="visually-hidden" aria-live="polite"></div>
 </header>
 
 <script>
@@ -163,6 +169,70 @@ if (function_exists('getConnection') && function_exists('getOrCreateCart')) {
         const query = searchInput.value.trim();
         const targetUrl = query === '' ? 'shop.php' : 'shop.php?q=' + encodeURIComponent(query);
         window.location.href = targetUrl;
+    });
+})();
+
+(function () {
+    const csrfToken = <?= json_encode(customerCsrfToken(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    const statusRegion = document.getElementById('favourite-status');
+
+    function updateFavouriteButtons(productId, isFavourite) {
+        document.querySelectorAll('[data-favourite-toggle][data-product-id="' + productId + '"]').forEach(function (button) {
+            button.classList.toggle('is-favourite', isFavourite);
+            button.setAttribute('aria-pressed', String(isFavourite));
+            button.setAttribute('aria-label', isFavourite ? 'Remove from favourites' : 'Add to favourites');
+            button.setAttribute('title', isFavourite ? 'Remove from favourites' : 'Add to favourites');
+        });
+    }
+
+    document.addEventListener('click', async function (event) {
+        const button = event.target.closest('[data-favourite-toggle]');
+        if (!button) return;
+
+        if (button.dataset.authenticated !== '1') {
+            window.location.href = 'favourites.php';
+            return;
+        }
+
+        const productId = parseInt(button.dataset.productId, 10);
+        if (!productId || button.disabled) return;
+
+        button.disabled = true;
+        try {
+            const formData = new FormData();
+            formData.append('action', 'toggle');
+            formData.append('product_id', String(productId));
+            formData.append('csrf_token', csrfToken);
+
+            const response = await fetch('favourite_actions.php', { method: 'POST', body: formData });
+            const data = await response.json();
+
+            if (data.requires_authentication) {
+                window.location.href = data.auth_url || 'favourites.php';
+                return;
+            }
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Your favourites could not be updated.');
+            }
+
+            updateFavouriteButtons(productId, Boolean(data.is_favourite));
+            if (statusRegion) statusRegion.textContent = data.message;
+
+            if (!data.is_favourite) {
+                const card = button.closest('[data-favourite-card]');
+                if (card) {
+                    card.remove();
+                    const grid = document.querySelector('[data-favourites-grid]');
+                    if (grid && !grid.querySelector('[data-favourite-card]')) {
+                        window.location.reload();
+                    }
+                }
+            }
+        } catch (error) {
+            if (statusRegion) statusRegion.textContent = error.message;
+        } finally {
+            button.disabled = false;
+        }
     });
 })();
 

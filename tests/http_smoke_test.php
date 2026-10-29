@@ -37,7 +37,7 @@ function smokeCheck(bool $condition, string $message): void
     }
 }
 
-foreach (['index.php', 'shop.php', 'browse.php', 'about_us.php', 'customer_login.php', 'customer_register.php', 'admin_login.php'] as $route) {
+foreach (['index.php', 'shop.php', 'browse.php', 'favourites.php', 'about_us.php', 'customer_login.php', 'customer_register.php', 'admin_login.php'] as $route) {
     $response = requestRoute($baseUrl, $route);
     smokeCheck($response['status'] === 200, $route . ' expected 200, received ' . $response['status'] . '.');
     smokeCheck(in_array('X-Content-Type-Options: nosniff', $response['headers'], true), $route . ' is missing the nosniff header.');
@@ -71,17 +71,19 @@ foreach ($protectedRoutes as $route => $location) {
     smokeCheck($response['location'] === $location, $route . ' redirected to an unexpected location.');
 }
 
-foreach (['cart_actions.php', 'customer_logout.php'] as $postOnlyRoute) {
+foreach (['cart_actions.php', 'favourite_actions.php', 'customer_logout.php'] as $postOnlyRoute) {
     $response = requestRoute($baseUrl, $postOnlyRoute);
     smokeCheck($response['status'] === 405, $postOnlyRoute . ' must reject GET with 405.');
 }
 
 $cartCsrf = requestRoute($baseUrl, 'cart_actions.php', 'POST', 'action=clear');
 smokeCheck($cartCsrf['status'] === 403, 'Cart actions must reject a POST without a valid CSRF token.');
+$favouriteCsrf = requestRoute($baseUrl, 'favourite_actions.php', 'POST', 'action=toggle&product_id=1');
+smokeCheck($favouriteCsrf['status'] === 403, 'Favourite actions must reject a POST without a valid CSRF token.');
 $logoutCsrf = requestRoute($baseUrl, 'customer_logout.php', 'POST', '');
 smokeCheck($logoutCsrf['status'] === 403, 'Customer logout must reject a POST without a valid CSRF token.');
 
-foreach (['setup_db.php', 'setup_security.php'] as $setupRoute) {
+foreach (['setup_db.php', 'setup_security.php', 'migrate.php'] as $setupRoute) {
     $response = requestRoute($baseUrl, $setupRoute);
     smokeCheck($response['status'] === 404, $setupRoute . ' must not be available over HTTP.');
 }

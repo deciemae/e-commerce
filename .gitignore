@@ -11,3 +11,4 @@
 *.log
 *.local.sql
 backups/*.sql
+tests/runtime_sessions/

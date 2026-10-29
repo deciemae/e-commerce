@@ -35,6 +35,8 @@ upload/body size limits.
 - Deny HTTP access to `.git/`, `.env*`, `backups/`, SQL files, logs, and internal documentation.
 - Keep `setup_db.php` and `setup_security.php` out of the deployed document root where possible;
   their application guard is defense in depth, not the primary deployment boundary.
+- Keep `migrate.php` out of the deployed document root where possible. Run it only from the CLI
+  with temporary `ALLOW_DB_MIGRATIONS=1` authorization after a verified backup.
 - Deny script execution inside upload directories and allow only the expected image types.
 - Ensure the application database user cannot create, alter, or drop tables during normal web
   requests.
@@ -46,14 +48,16 @@ upload/body size limits.
 3. Verify restoration in a disposable database with explicit operator approval.
 4. Deploy application files without local dumps, browser profiles, logs, or development caches.
 5. Configure production environment variables and writable upload directories.
-6. Run recursive PHP lint and `php tests/release_readiness_test.php` against the intended
+6. Run `php migrate.php --status`, create and verify a backup, then apply approved pending
+   migrations with `ALLOW_DB_MIGRATIONS=1 php migrate.php --apply`.
+7. Run recursive PHP lint and `php tests/release_readiness_test.php` against the intended
    database using read-only verification credentials where possible.
-7. Run `php tests/http_smoke_test.php` with `SHOPPINGCART_BASE_URL` set to the deployed URL.
-8. Perform real-browser desktop, tablet, and mobile checks for storefront, customer, checkout,
+8. Run `php tests/http_smoke_test.php` with `SHOPPINGCART_BASE_URL` set to the deployed URL.
+9. Perform real-browser desktop, tablet, and mobile checks for storefront, customer, checkout,
    and administrator routes.
-9. Verify HTTPS cookies, redirects, login/logout, CSRF failures, ownership failures, upload
+10. Verify HTTPS cookies, redirects, login/logout, CSRF failures, ownership failures, upload
    rejection, transactional checkout rollback, and server logs.
-10. Record the deployed commit, database schema version, backup checksum, operator, and date.
+11. Record the deployed commit, database schema version, backup checksum, operator, and date.
 
 ## Rollback
 

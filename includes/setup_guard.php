@@ -12,3 +12,16 @@ function requireCommandLineSetupApproval(): void
         exit(1);
     }
 }
+
+function requireCommandLineMigrationApproval(): void
+{
+    if (PHP_SAPI !== 'cli') {
+        http_response_code(404);
+        exit('Not found.');
+    }
+
+    if (getenv('ALLOW_DB_MIGRATIONS') !== '1') {
+        fwrite(STDERR, "Database migrations are disabled. Set ALLOW_DB_MIGRATIONS=1 only after creating and verifying a backup.\n");
+        exit(1);
+    }
+}

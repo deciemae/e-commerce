@@ -3,6 +3,7 @@ require_once __DIR__ . '/includes/session.php';
 startApplicationSession();
 require_once 'config/db.php';
 require_once 'includes/customer_system.php';
+require_once 'includes/customer_favourites.php';
 require_once 'includes/product_colors.php';
 
 // ── Color helper ──────────────────────────────────────────────
@@ -79,19 +80,10 @@ if ($stmt) {
 }
 
 $productColorMap = fetchProductColorsForIds($conn, array_column($products, 'product_id'));
-
-// Fetch current cart count
-$cart_id = null;
-$total_cart_qty = 0;
-if (currentCustomerId() || !empty($_SESSION['cart_id'])) {
-    $cart_id = getOrCreateCart($conn);
-    $s = $conn->prepare('SELECT SUM(quantity) as total_qty FROM cart_items WHERE cart_id = ?');
-    $s->bind_param('i', $cart_id);
-    $s->execute();
-    $r = $s->get_result()->fetch_assoc();
-    $total_cart_qty = (int)($r['total_qty'] ?? 0);
-    $s->close();
-}
+$customerId = currentCustomerId();
+$favouriteProductIds = $customerId
+    ? customerFavouriteProductIds($conn, $customerId, array_column($products, 'product_id'))
+    : [];
 
 $conn->close();
 $activePage = 'shop';
@@ -119,34 +111,11 @@ function renderCartIcon(string $class = ''): string {
 <?php $customerActivePage = 'shop'; require_once 'includes/customer_nav.php'; ?>
 
 <div id="main-content">
-
-    <!-- Topbar -->
-    <div class="page-topbar d-flex align-items-center justify-content-between gap-3 flex-wrap">
-        <div>
-            <h1>Customer Store Catalog</h1>
-        </div>
-        <div class="d-flex align-items-center gap-2 flex-wrap ms-auto">
-            <form method="GET" action="shop.php" class="d-flex align-items-center gap-2 search-form">
-                <input type="search" name="q" value="<?= htmlspecialchars($searchTerm, ENT_QUOTES) ?>" class="form-control" placeholder="Search products..." aria-label="Search products">
-                <button type="submit" class="btn btn-primary">Search</button>
-                <?php if ($searchTerm !== ''): ?>
-                    <a href="shop.php" class="btn btn-outline-secondary">Clear</a>
-                <?php endif; ?>
-            </form>
-            <a href="cart.php" class="btn btn-primary d-inline-flex align-items-center gap-2">
-                <span class="d-inline-flex align-items-center gap-1"><?= renderCartIcon('cart-icon') ?> <span>View Shopping Cart</span></span>
-                <span class="badge bg-white text-primary rounded-pill" id="shop-cart-badge"><?= $total_cart_qty ?></span>
-            </a>
-        </div>
-    </div>
-
     <div class="page-content">
 
         <section class="catalog-heading" aria-labelledby="catalog-title">
-            <div>
-                <p class="catalog-eyebrow">Bloom &amp; Basket catalog</p>
+            <div class="catalog-heading-title">
                 <h1 id="catalog-title"><?= $selectedCategoryName !== '' ? htmlspecialchars($selectedCategoryName) : 'Shop all products' ?></h1>
-                <p>Browse everyday essentials and choose the options that suit you.</p>
             </div>
             <form method="GET" action="shop.php" class="catalog-search" role="search">
                 <?php if ($selectedCategoryId > 0): ?>
@@ -158,20 +127,27 @@ function renderCartIcon(string $class = ''): string {
             </form>
         </section>
 
-        <nav class="catalog-filters" aria-label="Product categories">
-            <a href="shop.php<?= $searchTerm !== '' ? '?q=' . rawurlencode($searchTerm) : '' ?>" class="catalog-filter <?= $selectedCategoryId === 0 ? 'active' : '' ?>">All</a>
-            <?php foreach ($categories as $category): ?>
-                <?php $filterQuery = http_build_query(array_filter(['category' => (int)$category['category_id'], 'q' => $searchTerm], static fn($value) => $value !== '')); ?>
-                <a href="shop.php?<?= htmlspecialchars($filterQuery, ENT_QUOTES) ?>" class="catalog-filter <?= $selectedCategoryId === (int)$category['category_id'] ? 'active' : '' ?>">
-                    <?= htmlspecialchars($category['category_name']) ?>
-                </a>
-            <?php endforeach; ?>
-            <?php if ($selectedCategoryId > 0 || $searchTerm !== ''): ?>
-                <a href="shop.php" class="catalog-filter catalog-filter-clear">Clear filters</a>
-            <?php endif; ?>
-        </nav>
+        <div class="catalog-layout">
+            <aside class="catalog-filter-panel" aria-label="Filter products by category">
+                <nav class="catalog-filters" aria-label="Product categories">
+                    <a href="shop.php<?= $searchTerm !== '' ? '?q=' . rawurlencode($searchTerm) : '' ?>" class="catalog-filter <?= $selectedCategoryId === 0 ? 'active' : '' ?>" <?= $selectedCategoryId === 0 ? 'aria-current="page"' : '' ?>>
+                        <span>All products</span>
+                    </a>
+                    <?php foreach ($categories as $category): ?>
+                        <?php $filterQuery = http_build_query(array_filter(['category' => (int)$category['category_id'], 'q' => $searchTerm], static fn($value) => $value !== '')); ?>
+                        <?php $isActiveCategory = $selectedCategoryId === (int)$category['category_id']; ?>
+                        <a href="shop.php?<?= htmlspecialchars($filterQuery, ENT_QUOTES) ?>" class="catalog-filter <?= $isActiveCategory ? 'active' : '' ?>" <?= $isActiveCategory ? 'aria-current="page"' : '' ?>>
+                            <span><?= htmlspecialchars($category['category_name']) ?></span>
+                        </a>
+                    <?php endforeach; ?>
+                </nav>
+                <?php if ($selectedCategoryId > 0 || $searchTerm !== ''): ?>
+                    <a href="shop.php" class="catalog-filter-clear">Reset catalog</a>
+                <?php endif; ?>
+            </aside>
 
-        <div class="catalog-surface">
+            <section class="catalog-results" aria-label="Catalog products">
+                <div class="catalog-surface">
                 <?php if (empty($products)): ?>
                     <div class="empty-state">
                         <?php if ($selectedCategoryName !== ''): ?>
@@ -201,15 +177,18 @@ function renderCartIcon(string $class = ''): string {
                                             <div class="no-img-placeholder">🛍️</div>
                                         </a>
                                     <?php endif; ?>
+                                    <?php renderFavouriteButton(
+                                        (int)$p['product_id'],
+                                        in_array((int)$p['product_id'], $favouriteProductIds, true),
+                                        $customerId !== null,
+                                        'favourite-toggle-card'
+                                    ); ?>
                                 </div>
 
                                 <!-- Info -->
                                 <div class="product-info">
-                                    <span class="cat-badge mb-1"><?= htmlspecialchars($p['category_name']) ?></span>
                                     <div class="catalog-product-name"><?= htmlspecialchars($p['product_name']) ?></div>
-                                    <p class="catalog-product-description">
-                                        <?= htmlspecialchars($p['description'] ?? 'No description provided.') ?>
-                                    </p>
+                                    <span class="cat-badge"><?= htmlspecialchars($p['category_name']) ?></span>
                                     <div class="catalog-price-stock">
                                         <div class="catalog-price">&#8369;<?= number_format((float)$p['price'], 2) ?></div>
                                         <div class="catalog-stock">
@@ -260,6 +239,8 @@ function renderCartIcon(string $class = ''): string {
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
+                </div>
+            </section>
         </div>
 
     </div>

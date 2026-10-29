@@ -6,8 +6,12 @@ require_once 'includes/customer_system.php';
 require_once 'includes/validation.php';
 require_once 'includes/customer_toast.php';
 
+$sessionReturnTo = $_SESSION['customer_login_return_to'] ?? null;
+$returnTo = customerSafeReturnPath($_POST['return_to'] ?? $_GET['return_to'] ?? $sessionReturnTo);
+unset($_SESSION['customer_login_return_to']);
+
 if (currentCustomerId()) {
-    header('Location: index.php');
+    header('Location: ' . $returnTo);
     exit;
 }
 
@@ -47,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             customerLoginUser($user);
             attachSessionCartToCustomer($conn, (int)$user['user_id']);
             $conn->close();
-            header('Location: index.php');
+            header('Location: ' . $returnTo);
             exit;
         }
     }
@@ -95,6 +99,7 @@ $conn->close();
 
                 <form method="post" class="auth-form">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES) ?>">
+                    <input type="hidden" name="return_to" value="<?= htmlspecialchars($returnTo, ENT_QUOTES) ?>">
                     <div>
                         <label class="form-label" for="email">Email address</label>
                         <input type="email" class="form-control" id="email" name="email" required maxlength="255" autocomplete="email" value="<?= htmlspecialchars($_POST['email'] ?? $prefillEmail, ENT_QUOTES) ?>">
@@ -106,7 +111,7 @@ $conn->close();
                     <button type="submit" class="auth-submit">Sign in</button>
                 </form>
 
-                <p class="auth-switch">New to Bloom &amp; Basket? <a href="customer_register.php">Create an account</a></p>
+                <p class="auth-switch">New to Bloom &amp; Basket? <a href="customer_register.php?return_to=<?= rawurlencode($returnTo) ?>">Create an account</a></p>
             </div>
         </section>
     </div>

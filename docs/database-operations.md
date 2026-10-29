@@ -1,6 +1,6 @@
 # Database backup and versioning operations
 
-Status: backup procedure `VERIFIED`; migration/versioning approach `PROPOSED`.
+Status: backup procedure `VERIFIED`; ordered SQL migration approach `APPROVED` and `COMPLETED`.
 
 ## Current authority
 
@@ -51,18 +51,21 @@ mysql --host=$env:SHOPPINGCART_DB_HOST --port=$env:SHOPPINGCART_DB_PORT `
 Verify table counts, foreign keys, representative reads, and order-total consistency before an
 operator explicitly approves dropping the disposable database.
 
-## Proposed schema versioning
+## Schema versioning
 
-The following is `PROPOSED` and has not been created because schema-versioning decisions require
-approval:
+The approved workflow uses ordered `database/migrations/YYYYMMDDHHMM_description.sql` files and
+the command-line-only `migrate.php` runner. Applied versions and SHA-256 checksums are recorded in
+`schema_migrations`; a changed checksum stops execution. Each migration documents its
+preconditions, forward SQL, rollback guidance, and backup requirement.
 
-1. Add `database/schema.sql` as a schema-only baseline with no customer, session, credential,
-   order, or administrator data.
-2. Add ordered `database/migrations/YYYYMMDDHHMM_description.sql` files.
-3. Add a `schema_migrations` table written only by a command-line migration runner.
-4. Require every migration to include preconditions, forward SQL, rollback guidance, and a
-   backup reference.
-5. Run migrations under an operator command, never during ordinary page requests.
+Check pending versions with `php migrate.php --status`. After creating and verifying a backup,
+apply them in PowerShell with:
 
-Before adopting this approach, reconcile the live schema, the historical dump, and both legacy
-setup scripts. No schema change is authorized by this document alone.
+```powershell
+$env:ALLOW_DB_MIGRATIONS='1'
+php .\migrate.php --apply
+Remove-Item Env:ALLOW_DB_MIGRATIONS
+```
+
+The runner returns HTTP 404 outside the CLI and migrations never execute during ordinary page
+requests. `ShoppingCart (1).sql` remains a historical reference rather than migration authority.

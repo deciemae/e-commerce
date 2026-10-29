@@ -28,7 +28,7 @@ $runtimeFiles = array_merge(
 );
 
 foreach ($runtimeFiles as $file) {
-    if (in_array(basename($file), ['setup_db.php', 'setup_security.php'], true)) {
+    if (in_array(basename($file), ['setup_db.php', 'setup_security.php', 'migrate.php'], true)) {
         continue;
     }
 
@@ -56,10 +56,19 @@ foreach (['setup_db.php', 'setup_security.php'] as $setupFile) {
     releaseCheck(str_contains((string)$contents, 'requireCommandLineSetupApproval'), $setupFile . ' is not protected by the CLI setup guard.');
 }
 
+$migrationRunner = file_get_contents($root . '/migrate.php');
+releaseCheck(str_contains((string)$migrationRunner, 'requireCommandLineMigrationApproval'), 'Migration apply must require explicit CLI approval.');
+releaseCheck(str_contains((string)$migrationRunner, 'schema_migrations'), 'Migration runner must track applied versions.');
+
 $cartActions = file_get_contents($root . '/cart_actions.php');
 releaseCheck(str_contains((string)$cartActions, "REQUEST_METHOD'] !== 'POST'"), 'Cart actions must be POST-only.');
 releaseCheck(str_contains((string)$cartActions, 'customerCsrfIsValid'), 'Cart actions must validate CSRF tokens.');
 releaseCheck(str_contains((string)$cartActions, 'stock_quantity'), 'Cart actions must validate inventory.');
+
+$favouriteActions = file_get_contents($root . '/favourite_actions.php');
+releaseCheck(str_contains((string)$favouriteActions, "REQUEST_METHOD'] !== 'POST'"), 'Favourite actions must be POST-only.');
+releaseCheck(str_contains((string)$favouriteActions, 'customerCsrfIsValid'), 'Favourite actions must validate CSRF tokens.');
+releaseCheck(str_contains((string)$favouriteActions, 'currentCustomerId'), 'Favourite actions must require a customer identity.');
 
 $customerLogout = file_get_contents($root . '/customer_logout.php');
 releaseCheck(str_contains((string)$customerLogout, "REQUEST_METHOD'] !== 'POST'"), 'Customer logout must be POST-only.');
@@ -95,6 +104,7 @@ $requiredTables = [
     'admins', 'admin_activity_logs', 'admin_security_settings', 'users', 'categories',
     'products', 'product_colors', 'product_reviews', 'carts', 'cart_items',
     'customer_addresses', 'orders', 'order_details',
+    'customer_favourites', 'schema_migrations',
 ];
 $stmt = $connection->prepare(
     'SELECT table_name FROM information_schema.tables WHERE table_schema = ?'
@@ -115,6 +125,8 @@ $integrityQueries = [
         'SELECT COUNT(*) AS total FROM orders o LEFT JOIN users u ON u.user_id = o.user_id WHERE u.user_id IS NULL',
     'Order details reference existing orders and products.' =>
         'SELECT COUNT(*) AS total FROM order_details od LEFT JOIN orders o ON o.order_id = od.order_id LEFT JOIN products p ON p.product_id = od.product_id WHERE o.order_id IS NULL OR p.product_id IS NULL',
+    'Favourites reference existing customers and products.' =>
+        'SELECT COUNT(*) AS total FROM customer_favourites cf LEFT JOIN users u ON u.user_id = cf.user_id LEFT JOIN products p ON p.product_id = cf.product_id WHERE u.user_id IS NULL OR p.product_id IS NULL',
     'Product stock is non-negative.' =>
         'SELECT COUNT(*) AS total FROM products WHERE stock_quantity < 0',
     'Order statuses belong to the server allowlist.' =>

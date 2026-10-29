@@ -4,6 +4,7 @@ require_once 'includes/product_colors.php';
 require_once __DIR__ . '/includes/session.php';
 startApplicationSession();
 require_once 'includes/customer_system.php';
+require_once 'includes/customer_favourites.php';
 
 function renderStars(float $rating): string
 {
@@ -143,6 +144,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $product) {
 
 $reviews = $product ? fetchReviews($conn, $productId) : [];
 $colors = $product ? fetchProductColors($conn, $productId) : [];
+$customerId = currentCustomerId();
+$isFavourite = $product && $customerId
+    ? customerFavouriteExists($conn, $customerId, $productId)
+    : false;
 $conn->close();
 $activePage = 'shop';
 
@@ -199,7 +204,10 @@ $isOutOfStock = $product ? ((int)$product['stock_quantity'] <= 0) : true;
                 <div class="product-detail-summary">
                     <div class="product-detail-summary-inner">
                         <p class="product-detail-category"><?= htmlspecialchars($product['category_name']) ?></p>
-                        <h1 class="product-detail-title" id="product-title"><?= htmlspecialchars($product['product_name']) ?></h1>
+                        <div class="product-detail-title-row">
+                            <h1 class="product-detail-title" id="product-title"><?= htmlspecialchars($product['product_name']) ?></h1>
+                            <?php renderFavouriteButton($productId, $isFavourite, $customerId !== null, 'favourite-toggle-detail'); ?>
+                        </div>
                         <div class="product-detail-price">&#8369;<?= number_format((float)$product['price'], 2) ?></div>
                         <div class="product-detail-stock <?= $isOutOfStock ? 'is-out' : 'is-available' ?>">
                             <?php if ($isOutOfStock): ?>

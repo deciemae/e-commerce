@@ -5,8 +5,10 @@ require_once 'config/db.php';
 require_once 'includes/customer_system.php';
 require_once 'includes/validation.php';
 
+$returnTo = customerSafeReturnPath($_POST['return_to'] ?? $_GET['return_to'] ?? null);
+
 if (currentCustomerId()) {
-    header('Location: index.php');
+    header('Location: ' . $returnTo);
     exit;
 }
 
@@ -59,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($stmt->execute()) {
                 $_SESSION['customer_flash_success'] = 'Account created successfully. Please sign in using the email and password you registered.';
                 $_SESSION['customer_login_email'] = $email;
+                $_SESSION['customer_login_return_to'] = $returnTo;
                 $stmt->close();
                 $conn->close();
                 header('Location: customer_login.php');
@@ -118,6 +121,7 @@ $conn->close();
 
                 <form method="post" class="auth-form auth-register-form">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES) ?>">
+                    <input type="hidden" name="return_to" value="<?= htmlspecialchars($returnTo, ENT_QUOTES) ?>">
                     <div class="auth-field-grid">
                         <div>
                             <label class="form-label" for="first_name">First name</label>
@@ -150,7 +154,7 @@ $conn->close();
                     <button type="submit" class="auth-submit">Create account</button>
                 </form>
 
-                <p class="auth-switch">Already registered? <a href="customer_login.php">Sign in</a></p>
+                <p class="auth-switch">Already registered? <a href="customer_login.php?return_to=<?= rawurlencode($returnTo) ?>">Sign in</a></p>
             </div>
         </section>
     </div>

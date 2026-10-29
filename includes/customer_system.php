@@ -37,6 +37,18 @@ function currentCustomerEmail(): string
     return trim((string)($_SESSION['customer_email'] ?? ''));
 }
 
+function customerSafeReturnPath(?string $candidate, string $fallback = 'index.php'): string
+{
+    $allowedPaths = ['index.php', 'shop.php', 'favourites.php'];
+    $candidate = trim((string)$candidate);
+
+    if ($candidate === '' || !in_array($candidate, $allowedPaths, true)) {
+        return $fallback;
+    }
+
+    return $candidate;
+}
+
 function customerLoginUser(array $user): void
 {
     session_regenerate_id(true);

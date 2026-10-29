@@ -81,19 +81,29 @@ Do not duplicate token declarations or global typography rules in page styleshee
 
 ### Phase 2 - Storefront pilot
 
-- `COMPLETED`: Customer navigation, search, accessible mobile menu, and fixed-header spacing.
+- `COMPLETED`: Customer navigation, search, accessible mobile menu, fixed-header spacing, and
+  an outlined shopping-bag cart control with its real item quantity contained inside the icon.
+- `COMPLETED`: Persistent customer favourites use accessible heart controls on catalog and
+  product-detail surfaces, a focused sign-in/register gate for guests, and a minimal saved-product
+  grid for authenticated customers. This is the Bloom & Basket interpretation of a pattern not
+  fully specified by `DESIGN.md`.
 - `COMPLETED`: The supplied Bloom & Basket logo is paired with the brand name in the shared
   customer header without altering the original image asset.
 - `COMPLETED`: Full-bleed photography-first homepage hero, contained benefits strip,
-  category rail, and section rhythm.
+  horizontally scrolling category rail, compact section headings, and section rhythm. The
+  category rail stays on one row at every breakpoint, shows a partial next card, and combines
+  scroll snapping with accessible circular previous and next controls instead of wrapping
+  additional categories below the first row.
 - `COMPLETED`: Flat square product-card image stages with contained, consistently scaled
-  full-bleed imagery and image-first product navigation, plus clear metadata, price, swatches, and a
-  single purchase action; price and stock share one compact metadata row. Homepage featured cards
-  now use the same full-bleed square image and price-stock arrangement as the catalog.
+  full-bleed imagery and image-first product navigation, plus concise category metadata, product
+  name, price, swatches, and a single purchase action. Catalog descriptions were removed so price
+  and stock follow the product identity directly in one compact metadata row. Homepage featured
+  cards use the same full-bleed square image and price-stock arrangement as the catalog.
 - `COMPLETED`: Compact catalog heading and search toolbar with reduced display typography and
   tighter filter-to-grid spacing.
-- `COMPLETED`: Storefront category filters and 3-column desktop, 2-column tablet, and
-  1-column narrow-mobile catalog grid.
+- `COMPLETED`: Storefront category filters use a minimal white left rail adapted from the
+  reference catalog pattern, then become compact horizontal controls on smaller screens,
+  alongside the 3-column desktop, 2-column tablet, and 1-column narrow-mobile catalog grid.
 - `COMPLETED`: Photography-led About page with an editorial story layout, existing quick-fact
   rail, mission and product-offer panels, and accessible contact links.
 - `COMPLETED`: A shared dark customer footer uses the supplied Bloom & Basket logo, real
@@ -106,7 +116,9 @@ Do not duplicate token declarations or global typography rules in page styleshee
 
 - `COMPLETED`: Responsive product details with a photography-first image stage, clear product
   hierarchy, accessible color and rating controls, stock-aware purchasing controls, and flat
-  review panels.
+  review panels. The desktop product canvas is capped at 1280px, with a square image stage and
+  restrained 32px maximum product heading so product information and purchase controls remain
+  visible without oversized presentation.
 - `COMPLETED`: Responsive cart controls with flat product rows, accessible selection and
   quantity controls, an empty state, and a focused order summary that keeps checkout as the
   single primary action.

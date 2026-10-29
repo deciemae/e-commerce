@@ -288,13 +288,13 @@ body {
 
 .catalog-surface .cat-badge {
     align-self: flex-start;
-    padding: .25rem .6rem;
-    color: var(--color-ink);
-    background: var(--color-canvas);
-    border: 1px solid var(--color-border-soft);
-    border-radius: var(--radius-pill);
-    font-size: .7rem;
-    font-weight: 600;
+    padding: 0;
+    color: var(--color-text-muted);
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    font-size: .75rem;
+    font-weight: 500;
 }
 
 .catalog-surface .catalog-product-name {
@@ -303,18 +303,6 @@ body {
     font-size: 1rem;
     font-weight: 700;
     line-height: 1.4;
-}
-
-.catalog-product-description {
-    display: -webkit-box;
-    min-height: 2.7em;
-    margin: 0;
-    overflow: hidden;
-    color: var(--color-text-muted);
-    font-size: .82rem;
-    line-height: 1.4;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
 }
 
 .catalog-surface .catalog-price-stock {

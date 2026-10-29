@@ -224,71 +224,6 @@ $conn->close();
             }
         }
 
-        .category-cards-scroll {
-            display: flex;
-            gap: 16px;
-            overflow-x: auto;
-            padding-bottom: 12px;
-            scrollbar-width: thin;
-        }
-        .category-cards-scroll::-webkit-scrollbar { height: 6px; }
-        .category-cards-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        
-        .category-card {
-            flex: 0 0 auto;
-            width: 180px;
-            background: #fff;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-            transition: transform 0.2s, box-shadow 0.2s;
-            display: flex;
-            flex-direction: column;
-            border: 1px solid rgba(0,0,0,0.05);
-        }
-        .category-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 16px rgba(0,0,0,0.08);
-        }
-        .category-card-img {
-            height: 140px;
-            background: #f8fafc;
-        }
-        .category-card-img img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        .category-card-img .no-img {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            color: #94a3b8;
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-        .category-card-body {
-            padding: 12px 14px;
-        }
-        .category-card-title {
-            font-size: 0.95rem;
-            font-weight: 700;
-            color: #0f172a;
-            margin: 0 0 4px 0;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .category-card-link {
-            font-size: 0.75rem;
-            color: #64748b;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-weight: 600;
-        }
-
     </style>
 </head>
 <body class="customer-ui customer-page home-storefront">
@@ -409,12 +344,26 @@ $conn->close();
             </div>
         </section>
 
-        <section class="storefront-section">
-            <div class="storefront-section-heading">
+        <section class="storefront-section category-showcase">
+            <div class="storefront-section-heading category-slider-heading">
                 <h2>Shop by Categories</h2>
-                <a href="shop.php">View All Categories &rarr;</a>
+                <div class="category-slider-heading-actions">
+                    <a href="shop.php">View All Categories</a>
+                    <div class="category-slider-controls" role="group" aria-label="Category slider controls">
+                        <button type="button" class="category-slider-button" data-category-slider-previous aria-label="Previous categories" aria-controls="category-slider" disabled>
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="m15 18-6-6 6-6"></path>
+                            </svg>
+                        </button>
+                        <button type="button" class="category-slider-button" data-category-slider-next aria-label="Next categories" aria-controls="category-slider">
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="m9 6 6 6-6 6"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div class="category-cards-scroll">
+            <div class="category-cards-scroll" id="category-slider" role="region" aria-label="Product categories">
                 <?php foreach ($categoryHighlights as $highlight): ?>
                     <a href="shop.php?category=<?= (int)$highlight['category']['category_id'] ?>" class="category-card text-decoration-none">
                         <div class="category-card-img">
@@ -496,7 +445,49 @@ $conn->close();
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // filter logic removed since categories are now links
+        var slider = document.getElementById('category-slider');
+        var previousButton = document.querySelector('[data-category-slider-previous]');
+        var nextButton = document.querySelector('[data-category-slider-next]');
+        var controls = document.querySelector('.category-slider-controls');
+
+        if (!slider || !previousButton || !nextButton || !controls) {
+            return;
+        }
+
+        function updateCategorySliderControls() {
+            var maxScrollLeft = Math.max(0, slider.scrollWidth - slider.clientWidth);
+            var hasOverflow = maxScrollLeft > 1;
+
+            controls.hidden = !hasOverflow;
+            previousButton.disabled = slider.scrollLeft <= 1;
+            nextButton.disabled = slider.scrollLeft >= maxScrollLeft - 1;
+        }
+
+        function scrollCategorySlider(direction) {
+            var firstCard = slider.querySelector('.category-card');
+            if (!firstCard) {
+                return;
+            }
+
+            var styles = window.getComputedStyle(slider);
+            var gap = parseFloat(styles.columnGap || styles.gap) || 0;
+            var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            slider.scrollBy({
+                left: direction * (firstCard.getBoundingClientRect().width + gap),
+                behavior: reducedMotion ? 'auto' : 'smooth'
+            });
+        }
+
+        previousButton.addEventListener('click', function () {
+            scrollCategorySlider(-1);
+        });
+        nextButton.addEventListener('click', function () {
+            scrollCategorySlider(1);
+        });
+        slider.addEventListener('scroll', updateCategorySliderControls, { passive: true });
+        window.addEventListener('resize', updateCategorySliderControls);
+        updateCategorySliderControls();
     });
 </script>
 <script>
